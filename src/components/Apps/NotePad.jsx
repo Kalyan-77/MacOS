@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Save, Download } from 'lucide-react';
+import { BASE_URL } from '../../../config';
 
-export default function NotePad({ onClose }) {
-  // Initialize state from stored values or defaults
+export default function NotePad({ onClose, fileToOpen = null, userId }) {
   const [noteContent, setNoteContent] = useState(() => {
     const stored = window.notepadData?.content;
     return stored || 'Start typing your notes here...';
@@ -16,8 +16,10 @@ export default function NotePad({ onClose }) {
     return stored !== undefined ? stored : true;
   });
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [currentFileId, setCurrentFileId] = useState(null);
+  const [googleDriveId, setGoogleDriveId] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Window state
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMaximized, setIsMaximized] = useState(() => {
     const stored = window.notepadData?.isMaximized;
@@ -33,7 +35,6 @@ export default function NotePad({ onClose }) {
   const windowRef = useRef(null);
   const textareaRef = useRef(null);
 
-  // Dragging variables - enhanced for native-like movement
   const dragState = useRef({
     holdingWindow: false,
     mouseTouchX: 0,
@@ -44,7 +45,74 @@ export default function NotePad({ onClose }) {
     currentWindowY: window.notepadData?.windowPosition?.y || 50
   });
 
-  // Initialize global storage if it doesn't exist
+  const API_BASE = `${BASE_URL}/finder`;
+  const CLOUD_API = `${BASE_URL}/cloud`;
+
+  // Load file when fileToOpen changes
+  useEffect(() => {
+    if (fileToOpen && fileToOpen._id) {
+      loadFile(fileToOpen);
+    }
+  }, [fileToOpen]);
+
+  // Load file content
+  const loadFile = async (file) => {
+    try {
+      setIsLoading(true);
+      setCurrentFileId(file._id);
+      setFileName(file.name);
+      
+      // Use googleDriveId from the file object (not driveFileId)
+      const driveId = file.googleDriveId;
+      setGoogleDriveId(driveId);
+
+      console.log("Loading file:", { fileId: file._id, googleDriveId: driveId });
+
+      if (driveId) {
+        // Load from Google Drive
+        const response = await fetch(`${CLOUD_API}/display/${driveId}`, {
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          const text = await response.text();
+          console.log("File content loaded from Drive:", text.substring(0, 100));
+          setNoteContent(text || 'Start typing your notes here...');
+          setIsSaved(true);
+          
+          if (window.notepadData) {
+            window.notepadData.content = text;
+            window.notepadData.fileName = file.name;
+            window.notepadData.isSaved = true;
+          }
+        } else {
+          console.error("Failed to load from Drive, status:", response.status);
+          throw new Error('Failed to load file content from Google Drive');
+        }
+      } else if (file.content !== undefined) {
+        // Fallback: Load from MongoDB content field
+        console.log("Loading from MongoDB content field");
+        setNoteContent(file.content || 'Start typing your notes here...');
+        setIsSaved(true);
+        
+        if (window.notepadData) {
+          window.notepadData.content = file.content || '';
+          window.notepadData.fileName = file.name;
+          window.notepadData.isSaved = true;
+        }
+      } else {
+        console.warn("No googleDriveId or content field found");
+        setNoteContent('Start typing your notes here...');
+      }
+    } catch (error) {
+      console.error("Error loading file:", error);
+      alert("Failed to load file content: " + error.message);
+      setNoteContent('Start typing your notes here...');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!window.notepadData) {
       window.notepadData = {
@@ -58,7 +126,6 @@ export default function NotePad({ onClose }) {
     }
   }, []);
 
-  // Save state to global storage whenever it changes
   useEffect(() => {
     if (window.notepadData) {
       window.notepadData.content = noteContent;
@@ -73,7 +140,6 @@ export default function NotePad({ onClose }) {
     }
   }, [noteContent, fileName, isSaved, isMaximized, prevPosition]);
 
-  // Initialize dragging system - native Windows-like movement
   useEffect(() => {
     const windowElement = windowRef.current;
     if (!windowElement) return;
@@ -83,28 +149,24 @@ export default function NotePad({ onClose }) {
 
     const handleMouseMove = (e) => {
       if (dragState.current.holdingWindow && !isMaximized) {
-        // Cancel any existing animation frame to ensure smooth movement
         if (animationFrame) {
           cancelAnimationFrame(animationFrame);
         }
 
-        // Calculate direct position based on mouse offset from initial click
         const deltaX = e.clientX - dragState.current.mouseTouchX;
         const deltaY = e.clientY - dragState.current.mouseTouchY;
         
         dragState.current.currentWindowX = dragState.current.startWindowX + deltaX;
         dragState.current.currentWindowY = dragState.current.startWindowY + deltaY;
 
-        // Allow more freedom - only prevent going completely off screen
-        const minX = -windowElement.offsetWidth + 100; // Allow mostly off-screen left
-        const minY = 0; // Keep title bar visible
-        const maxX = window.innerWidth - 100; // Allow mostly off-screen right  
-        const maxY = window.innerHeight - 100; // Allow mostly off-screen bottom
+        const minX = -windowElement.offsetWidth + 100;
+        const minY = 0;
+        const maxX = window.innerWidth - 100;
+        const maxY = window.innerHeight - 100;
 
         dragState.current.currentWindowX = Math.max(minX, Math.min(maxX, dragState.current.currentWindowX));
         dragState.current.currentWindowY = Math.max(minY, Math.min(maxY, dragState.current.currentWindowY));
 
-        // Use requestAnimationFrame for ultra-smooth movement
         animationFrame = requestAnimationFrame(() => {
           windowElement.style.transform = `translate3d(${dragState.current.currentWindowX}px, ${dragState.current.currentWindowY}px, 0)`;
         });
@@ -112,12 +174,10 @@ export default function NotePad({ onClose }) {
     };
 
     const handleMouseDown = (e) => {
-      // Only handle left mouse button
       if (e.button === 0) {
         const titleBar = e.target.closest('.title-bar');
         const isButton = e.target.closest('.traffic-lights') || e.target.closest('button');
         
-        // Only start dragging if clicking on title bar but not on buttons
         if (titleBar && !isButton) {
           e.preventDefault();
           e.stopPropagation();
@@ -126,17 +186,14 @@ export default function NotePad({ onClose }) {
           setIsActive(true);
           setIsDragging(true);
 
-          // Bring window to front
           windowElement.style.zIndex = highestZ;
           highestZ += 1;
 
-          // Store initial positions
           dragState.current.mouseTouchX = e.clientX;
           dragState.current.mouseTouchY = e.clientY;
           dragState.current.startWindowX = dragState.current.currentWindowX;
           dragState.current.startWindowY = dragState.current.currentWindowY;
 
-          // Set cursor and disable text selection globally
           document.body.style.userSelect = 'none';
           document.body.style.cursor = 'default';
           document.body.style.pointerEvents = 'none';
@@ -145,18 +202,16 @@ export default function NotePad({ onClose }) {
       }
     };
 
-    const handleMouseUp = (e) => {
+    const handleMouseUp = () => {
       if (dragState.current.holdingWindow) {
         dragState.current.holdingWindow = false;
         setIsDragging(false);
         
-        // Reset all global styles
         document.body.style.userSelect = '';
         document.body.style.cursor = '';
         document.body.style.pointerEvents = '';
         windowElement.style.pointerEvents = '';
 
-        // Cancel any pending animation frame
         if (animationFrame) {
           cancelAnimationFrame(animationFrame);
           animationFrame = null;
@@ -164,27 +219,17 @@ export default function NotePad({ onClose }) {
       }
     };
 
-    // Prevent context menu during drag
     const handleContextMenu = (e) => {
       if (dragState.current.holdingWindow) {
         e.preventDefault();
       }
     };
 
-    // Handle mouse leave to continue dragging even when cursor leaves window
-    const handleMouseLeave = (e) => {
-      // Don't stop dragging when mouse leaves the window
-      // This allows for native-like behavior
-    };
-
-    // Add event listeners
     document.addEventListener('mousemove', handleMouseMove, { passive: false });
     document.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('contextmenu', handleContextMenu);
-    document.addEventListener('mouseleave', handleMouseLeave);
     windowElement.addEventListener('mousedown', handleMouseDown);
 
-    // Set initial position with hardware acceleration
     windowElement.style.transform = `translate3d(${dragState.current.currentWindowX}px, ${dragState.current.currentWindowY}px, 0)`;
     windowElement.style.willChange = 'transform';
 
@@ -192,22 +237,18 @@ export default function NotePad({ onClose }) {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('contextmenu', handleContextMenu);
-      document.removeEventListener('mouseleave', handleMouseLeave);
       windowElement.removeEventListener('mousedown', handleMouseDown);
       
-      // Reset styles
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
       document.body.style.pointerEvents = '';
       
-      // Cancel animation frame
       if (animationFrame) {
         cancelAnimationFrame(animationFrame);
       }
     };
   }, [isMaximized]);
 
-  // Traffic light button handlers
   const handleClose = () => {
     onClose();
   };
@@ -234,7 +275,6 @@ export default function NotePad({ onClose }) {
     }
   };
 
-  // Handle textarea focus
   const handleTextareaFocus = () => {
     setIsActive(true);
     if (noteContent === 'Start typing your notes here...') {
@@ -255,54 +295,118 @@ export default function NotePad({ onClose }) {
     }
   };
 
-  // Handle content change
   const handleContentChange = (e) => {
     const newContent = e.target.value;
     setNoteContent(newContent);
     setIsSaved(false);
     
-    // Update global storage immediately
     if (window.notepadData) {
       window.notepadData.content = newContent;
       window.notepadData.isSaved = false;
     }
   };
 
-  // Save functionality
-  const handleSave = () => {
-    const blob = new Blob([noteContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    setIsSaved(true);
-    
-    // Update global storage
-    if (window.notepadData) {
-      window.notepadData.isSaved = true;
+  // Save functionality - properly handle updates vs new files
+  const handleSave = async () => {
+    if (!userId) {
+      alert("Please log in to save files");
+      return;
+    }
+
+    // Don't save placeholder text
+    if (noteContent === 'Start typing your notes here...') {
+      alert("Please enter some content before saving");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      if (currentFileId && googleDriveId) {
+        // UPDATE EXISTING FILE
+        console.log("Updating existing file:", { currentFileId, googleDriveId });
+
+        // Update MongoDB
+        const mongoResponse = await fetch(`${API_BASE}/textfile/${currentFileId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: 'include',
+          body: JSON.stringify({ content: noteContent })
+        });
+
+        if (!mongoResponse.ok) {
+          const errorData = await mongoResponse.json();
+          throw new Error(errorData.error || 'Failed to update file in database');
+        }
+
+        console.log("MongoDB updated successfully");
+        
+        setIsSaved(true);
+        if (window.notepadData) {
+          window.notepadData.isSaved = true;
+        }
+        alert('File updated successfully!');
+
+      } else {
+        // CREATE NEW FILE
+        console.log("Creating new file");
+
+        const response = await fetch(`${API_BASE}/textfile`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: 'include',
+          body: JSON.stringify({
+            name: fileName.endsWith('.txt') ? fileName : `${fileName}.txt`,
+            content: noteContent,
+            parentId: "desktop",
+            owner: userId
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log("New file created:", data);
+          
+          setCurrentFileId(data.file._id);
+          setGoogleDriveId(data.file.googleDriveId);
+          setIsSaved(true);
+          
+          if (window.notepadData) {
+            window.notepadData.isSaved = true;
+          }
+          
+          alert('File saved successfully!');
+        } else {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to save file');
+        }
+      }
+    } catch (error) {
+      console.error("Error saving file:", error);
+      alert("Failed to save file: " + error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Save As functionality
   const handleSaveAs = () => {
     setShowSaveDialog(true);
   };
 
-  const handleSaveAsConfirm = () => {
-    handleSave();
+  const handleSaveAsConfirm = async () => {
     setShowSaveDialog(false);
     
-    // Update filename in global storage
+    // Reset IDs to force creating a new file
+    setCurrentFileId(null);
+    setGoogleDriveId(null);
+    
     if (window.notepadData) {
       window.notepadData.fileName = fileName;
     }
+    
+    await handleSave();
   };
 
-  // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
@@ -313,16 +417,14 @@ export default function NotePad({ onClose }) {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [noteContent, fileName]);
+  }, [noteContent, fileName, currentFileId, googleDriveId, userId]);
 
-  // Handle clicking on window to make it active
   const handleWindowClick = () => {
     setIsActive(true);
   };
 
   return (
     <>
-      {/* Notepad Window */}
       <div
         ref={windowRef}
         className={`fixed bg-white rounded-xl shadow-2xl overflow-hidden transition-all duration-200 ${
@@ -342,17 +444,15 @@ export default function NotePad({ onClose }) {
         }}
         onClick={handleWindowClick}
       >
-        {/* Title Bar */}
         <div
           className={`title-bar h-12 bg-gray-100 border-b border-gray-200 flex items-center justify-between px-4 select-none transition-colors duration-200 ${
             isActive ? 'bg-gray-100' : 'bg-gray-50'
           }`}
           style={{ 
             cursor: 'default',
-            WebkitAppRegion: 'drag'  // Native drag region for Electron-like behavior
+            WebkitAppRegion: 'drag'
           }}
         >
-          {/* Traffic Light Buttons */}
           <div className="traffic-lights flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
             <button
               className="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600 transition-colors duration-150 group flex items-center justify-center cursor-pointer"
@@ -380,45 +480,45 @@ export default function NotePad({ onClose }) {
             </button>
           </div>
 
-          {/* Window Title */}
           <div className="absolute left-1/2 transform -translate-x-1/2 pointer-events-none">
             <h1 className="text-sm font-medium text-gray-700">
               {fileName}{!isSaved && ' •'}
+              {isLoading && ' (Loading...)'}
             </h1>
           </div>
 
-          {/* Document Icon & Save Button */}
           <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
             <button
               onClick={handleSave}
-              className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded transition-colors duration-150 cursor-pointer"
+              disabled={isLoading}
+              className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded transition-colors duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               title="Save (⌘S)"
-              style={{ cursor: 'pointer' }}
+              style={{ cursor: isLoading ? 'not-allowed' : 'pointer' }}
             >
               <Save size={12} />
-              Save
+              {isLoading ? 'Saving...' : 'Save'}
             </button>
             <button
               onClick={handleSaveAs}
-              className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded transition-colors duration-150 cursor-pointer"
+              disabled={isLoading}
+              className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded transition-colors duration-150 cursor-pointer disabled:opacity-50"
               title="Save As"
-              style={{ cursor: 'pointer' }}
+              style={{ cursor: isLoading ? 'not-allowed' : 'pointer' }}
             >
               <Download size={12} />
             </button>
           </div>
         </div>
 
-        {/* Main Content Area */}
         <div className="h-full bg-white flex flex-col" style={{ height: 'calc(100% - 3rem)' }}>
-          {/* Text Editor */}
           <textarea
             ref={textareaRef}
             value={noteContent}
             onChange={handleContentChange}
             onFocus={handleTextareaFocus}
             onBlur={handleTextareaBlur}
-            className="flex-1 w-full p-6 text-gray-800 text-base leading-relaxed resize-none outline-none font-system bg-transparent"
+            disabled={isLoading}
+            className="flex-1 w-full p-6 text-gray-800 text-base leading-relaxed resize-none outline-none font-system bg-transparent disabled:opacity-50"
             style={{
               fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
               color: noteContent === 'Start typing your notes here...' ? '#9CA3AF' : '#374151',
@@ -430,7 +530,6 @@ export default function NotePad({ onClose }) {
         </div>
       </div>
 
-      {/* Save As Dialog */}
       {showSaveDialog && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-[1001]">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-96">
