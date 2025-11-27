@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Minus, Square, Code } from 'lucide-react';
 
-export default function VSCode({ onClose }) {
+export default function VSCode({ onClose, zIndex = 1000, onFocus   }) {
   const [isLoaded, setIsLoaded] = useState(false);
   
   // Window state
@@ -70,6 +70,10 @@ export default function VSCode({ onClose }) {
         if (titleBar && !isButton) {
           e.preventDefault();
           e.stopPropagation();
+
+            if (onFocus) {
+              onFocus();
+            }
           
           dragState.current.holdingWindow = true;
           setIsActive(true);
@@ -169,6 +173,7 @@ export default function VSCode({ onClose }) {
 
   const handleWindowClick = () => {
     setIsActive(true);
+    if(onFocus) onFocus();
   };
 
   const handleIframeLoad = () => {
@@ -186,14 +191,17 @@ export default function VSCode({ onClose }) {
       style={{
         left: 0,
         top: 0,
-        width: isMaximized ? '100vw' : '1200px',
-        height: isMaximized ? 'calc(100vh - 25px)' : '800px',
-        zIndex: isActive ? 1000 : 999,
+        width: isMaximized ? '100vw' : '1000px',
+        height: isMaximized ? 'calc(100vh - 25px)' : '600px',
+        zIndex: zIndex,
         display: isMinimized ? 'none' : 'block',
         willChange: isDragging ? 'transform' : 'auto',
         transition: isDragging ? 'none' : 'all 0.2s'
       }}
-      onClick={handleWindowClick}
+      onClick={() => {
+        handleWindowClick();
+        if (onFocus) onFocus();
+      }}
     >
       {/* Title Bar */}
       <div

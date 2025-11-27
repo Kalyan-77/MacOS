@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Play, Pause, Square, SkipBack, SkipForward, Volume2, VolumeX, Maximize2, Minimize2, FolderOpen, Settings, MoreHorizontal, Rewind, FastForward, Monitor } from 'lucide-react';
 
-export default function VLCPlayer({onClose}) {
+export default function VLCPlayer({onClose, zIndex = 1000, onFocus  }) {
   // Media state
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -249,6 +249,10 @@ export default function VLCPlayer({onClose}) {
         if (titleBar && !isButton) {
           e.preventDefault();
           e.stopPropagation();
+
+            if (onFocus) {
+              onFocus();
+            }
           
           dragState.current.holdingWindow = true;
           setIsActive(true);
@@ -273,6 +277,10 @@ export default function VLCPlayer({onClose}) {
         setIsDragging(false);
         document.body.style.userSelect = '';
       }
+    };
+    const handleWindowClick = () => {
+      setIsActive(true);
+      if (onFocus) onFocus(); 
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -358,12 +366,16 @@ export default function VLCPlayer({onClose}) {
           top: 0,
           width: isMaximized ? '100vw' : '1000px',
           height: isMaximized ? '100vh' : '600px',
-          zIndex: isActive ? 1000 : 999,
+          zIndex: zIndex,
           display: isMinimized ? 'none' : 'block',
           willChange: isDragging ? 'transform' : 'auto',
           transition: isDragging ? 'none' : 'all 0.2s'
         }}
-        onClick={() => setIsActive(true)}
+        onClick={() => {
+          setIsActive(true);
+          handleWindowClick();
+          if (onFocus) onFocus();
+        }}
       >
         {/* Title Bar */}
         <div className="title-bar h-10 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-4 select-none">

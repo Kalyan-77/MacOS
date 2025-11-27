@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Minus, Square, Code, Map } from 'lucide-react';
 
-export default function Maps({ onClose }) {
+export default function Maps({ onClose, zIndex = 1000, onFocus   }) {
   const [isLoaded, setIsLoaded] = useState(false);
   
   // Window state
@@ -21,7 +21,7 @@ export default function Maps({ onClose }) {
     startWindowX: 300,
     startWindowY: 150,
     currentWindowX: 300,
-    currentWindowY: 100
+    currentWindowY: 20
   });
 
   // Initialize dragging system - native Windows-like movement
@@ -70,6 +70,10 @@ export default function Maps({ onClose }) {
         if (titleBar && !isButton) {
           e.preventDefault();
           e.stopPropagation();
+
+            if (onFocus) {
+              onFocus();
+            }
           
           dragState.current.holdingWindow = true;
           setIsActive(true);
@@ -169,6 +173,7 @@ export default function Maps({ onClose }) {
 
   const handleWindowClick = () => {
     setIsActive(true);
+    if (onFocus) onFocus();
   };
 
   const handleIframeLoad = () => {
@@ -188,12 +193,15 @@ export default function Maps({ onClose }) {
         top: 0,
         width: isMaximized ? '100vw' : '1000px',
         height: isMaximized ? 'calc(100vh - 25px)' : '600px',
-        zIndex: isActive ? 1000 : 999,
+        zIndex: zIndex,
         display: isMinimized ? 'none' : 'block',
         willChange: isDragging ? 'transform' : 'auto',
         transition: isDragging ? 'none' : 'all 0.2s'
       }}
-      onClick={handleWindowClick}
+      onClick={() => {
+        handleWindowClick();
+        if (onFocus) onFocus();
+      }}
     >
       {/* Title Bar */}
       <div

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Minus, Square } from 'lucide-react';
 
-export default function Calculator({ onClose }) {
+export default function Calculator({ onClose, zIndex = 1000, onFocus }) {
   const [display, setDisplay] = useState('0');
   const [previousValue, setPreviousValue] = useState(null);
   const [operation, setOperation] = useState(null);
@@ -48,7 +48,6 @@ export default function Calculator({ onClose }) {
     const windowElement = windowRef.current;
     if (!windowElement) return;
 
-    let highestZ = 1000;
     let animationFrame = null;
 
     const handleMouseMove = (e) => {
@@ -90,12 +89,14 @@ export default function Calculator({ onClose }) {
           e.preventDefault();
           e.stopPropagation();
           
+          // Call onFocus immediately when starting drag to bring window to front
+          if (onFocus) {
+            onFocus();
+          }
+          
           dragState.current.holdingWindow = true;
           setIsActive(true);
           setIsDragging(true);
-
-          windowElement.style.zIndex = highestZ;
-          highestZ += 1;
 
           dragState.current.mouseTouchX = e.clientX;
           dragState.current.mouseTouchY = e.clientY;
@@ -155,7 +156,7 @@ export default function Calculator({ onClose }) {
         cancelAnimationFrame(animationFrame);
       }
     };
-  }, [isMaximized, isMobile]);
+  }, [isMaximized, isMobile, onFocus]);
 
   // Calculator logic
   const inputNumber = (num) => {
@@ -272,6 +273,7 @@ export default function Calculator({ onClose }) {
 
   const handleWindowClick = () => {
     setIsActive(true);
+    if (onFocus) onFocus();
   };
 
   // Mobile-specific styles
@@ -297,10 +299,10 @@ export default function Calculator({ onClose }) {
         ...(isMobile ? mobileStyles : {
           left: 0,
           top: 0,
-          width: isMaximized ? '100vw' : '400px',
+          width: isMaximized ? '100vw' : '1000px',
           height: isMaximized ? 'calc(100vh - 25px)' : '600px',
         }),
-        zIndex: isActive ? 1000 : 999,
+        zIndex: zIndex,
         display: isMinimized ? 'none' : 'block',
         willChange: isDragging ? 'transform' : 'auto',
         transition: isDragging ? 'none' : 'all 0.2s'

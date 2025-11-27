@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Minus, Square, Terminal, Folder, Search, Settings } from 'lucide-react';
 
-export default function TerminalTab({ onClose }) {
+export default function TerminalTab({ onClose , zIndex = 1000, onFocus  }) {
   // Terminal state
   const [currentDirectory, setCurrentDirectory] = useState('/home/user');
   const [history, setHistory] = useState([
@@ -813,6 +813,10 @@ DESCRIPTION
         if (titleBar && !isButton) {
           e.preventDefault();
           e.stopPropagation();
+
+            if (onFocus) {
+              onFocus();
+            }
           
           dragState.current.holdingWindow = true;
           setIsActive(true);
@@ -917,6 +921,7 @@ DESCRIPTION
     if (inputRef.current) {
       inputRef.current.focus();
     }
+    if(onFocus) onFocus();
   };
 
   // Get responsive dimensions
@@ -960,11 +965,14 @@ DESCRIPTION
         top: 0,
         width: dimensions.width,
         height: dimensions.height,
-        zIndex: isActive ? 1000 : 999,
+        zIndex: zIndex,
         display: isMinimized ? 'none' : 'block',
         willChange: isDragging ? 'transform' : 'auto'
       }}
-      onClick={handleWindowClick}
+      onClick={() => {
+        handleWindowClick();
+        if (onFocus) onFocus();
+      }}
     >
       {/* Title Bar */}
       <div

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, Plus, Calendar, Mail, Search } from 'lucide-react';
 
-export default function calendar({ onClose }) {
+export default function calendar({ onClose, zIndex = 1000, onFocus  }) {
   // Calendar state
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -24,7 +24,7 @@ export default function calendar({ onClose }) {
     startWindowX: 200,
     startWindowY: 100,
     currentWindowX: 300,
-    currentWindowY: 50
+    currentWindowY: 40
   });
 
   // Calendar utilities
@@ -154,6 +154,10 @@ export default function calendar({ onClose }) {
         if (titleBar && !isButton) {
           e.preventDefault();
           e.stopPropagation();
+
+          if (onFocus) {
+            onFocus();
+          }
           
           dragState.current.holdingWindow = true;
           setIsActive(true);
@@ -251,6 +255,7 @@ export default function calendar({ onClose }) {
 
   const handleWindowClick = () => {
     setIsActive(true);
+    if (onFocus) onFocus();
   };
 
   const calendarDays = generateCalendarDays();
@@ -268,12 +273,15 @@ export default function calendar({ onClose }) {
         top: 0,
         width: isMaximized ? '100vw' : '1000px',
         height: isMaximized ? 'calc(100vh - 25px)' : '600px',
-        zIndex: isActive ? 1000 : 999,
+        zIndex: zIndex,
         display: isMinimized ? 'none' : 'block',
         willChange: isDragging ? 'transform' : 'auto',
         transition: isDragging ? 'none' : 'all 0.2s'
       }}
-      onClick={handleWindowClick}
+      onClick={() => {
+        handleWindowClick();
+        if(onFocus) onFocus();
+      }}
     >
       {/* Title Bar */}
       <div

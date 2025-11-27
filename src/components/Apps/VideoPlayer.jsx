@@ -3,7 +3,7 @@ import { X, Play, Pause, Volume2, VolumeX, Maximize2, SkipBack, SkipForward } fr
 import { BASE_URL } from '../../../config';
 
 
-export default function VideoPlayer({ onClose, fileToOpen = null, userId }) {
+export default function VideoPlayer({ onClose, fileToOpen = null, userId, zIndex = 1000, onFocus   }) {
   const [videoUrl, setVideoUrl] = useState(null);
   const [fileName, setFileName] = useState('Untitled Video');
   const [isLoading, setIsLoading] = useState(false);
@@ -107,6 +107,10 @@ export default function VideoPlayer({ onClose, fileToOpen = null, userId }) {
         if (titleBar && !isButton) {
           e.preventDefault();
           e.stopPropagation();
+
+            if (onFocus) {
+              onFocus();
+            }
           
           dragState.current.holdingWindow = true;
           setIsActive(true);
@@ -287,6 +291,7 @@ export default function VideoPlayer({ onClose, fileToOpen = null, userId }) {
 
   const handleWindowClick = () => {
     setIsActive(true);
+    if(onFocus) onFocus();
   };
 
   return (
@@ -302,12 +307,15 @@ export default function VideoPlayer({ onClose, fileToOpen = null, userId }) {
         top: 0,
         width: isMaximized ? '100vw' : '1000px',
         height: isMaximized ? 'calc(100vh - 25px)' : '600px',
-        zIndex: isActive ? 1000 : 999,
+        zIndex: zIndex,
         display: isMinimized ? 'none' : 'block',
         willChange: isDragging ? 'transform' : 'auto',
         transition: isDragging ? 'none' : 'all 0.2s'
       }}
-      onClick={handleWindowClick}
+      onClick={() => {
+        handleWindowClick();
+        if (onFocus) onFocus();
+      }}
     >
       <div
         className={`title-bar h-12 bg-gray-100 border-b border-gray-200 flex items-center justify-between px-4 select-none transition-colors duration-200 ${

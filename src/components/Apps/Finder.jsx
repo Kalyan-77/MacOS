@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 
-export default function FileManager({ onClose, toggleApp, setFileToOpen, userId: propUserId }) {
+export default function FileManager({ onClose, toggleApp, setFileToOpen, userId: propUserId, zIndex = 1000, onFocus   }) {
   // Backend state
   const [items, setItems] = useState([]);
   const [currentFolder, setCurrentFolder] = useState("root");
@@ -58,10 +58,10 @@ export default function FileManager({ onClose, toggleApp, setFileToOpen, userId:
     holdingWindow: false,
     mouseTouchX: 0,
     mouseTouchY: 0,
-    startWindowX: 50,
-    startWindowY: 50,
-    currentWindowX: 50,
-    currentWindowY: 50
+    startWindowX: window.notepadData?.windowPosition?.x || 300,
+    startWindowY: window.notepadData?.windowPosition?.y || 150,
+    currentWindowX: window.notepadData?.windowPosition?.x || 300,
+    currentWindowY: window.notepadData?.windowPosition?.y || 50
   });
 
   // Fixed sidebar folders
@@ -795,6 +795,10 @@ export default function FileManager({ onClose, toggleApp, setFileToOpen, userId:
         if (titleBar && !isButton) {
           e.preventDefault();
           e.stopPropagation();
+
+            if (onFocus) {
+              onFocus();
+            }
           
           dragState.current.holdingWindow = true;
           setIsActive(true);
@@ -829,6 +833,11 @@ export default function FileManager({ onClose, toggleApp, setFileToOpen, userId:
           animationFrame = null;
         }
       }
+    };
+
+    const handleWindowClick = () => {
+      setIsActive(true);
+      if (onFocus) onFocus();  // ADD THIS
     };
 
     const handleContextMenuGlobal = (e) => {
@@ -896,8 +905,8 @@ export default function FileManager({ onClose, toggleApp, setFileToOpen, userId:
     transform: 'none',
     borderRadius: 0,
   } : {
-    width: isMaximized ? '100vw' : 'min(95vw, 1200px)',
-    height: isMaximized ? 'calc(100vh - 25px)' : 'min(90vh, 700px)',
+    width: isMaximized ? '100vw' : '1000px',
+    height: isMaximized ? 'calc(100vh - 25px)' : '600px',
   };
 
   const isSpecialFolder = ['documents', 'photos', 'videos', 'music'].includes(currentFolder);
@@ -914,12 +923,16 @@ export default function FileManager({ onClose, toggleApp, setFileToOpen, userId:
         left: isMobile ? 0 : undefined,
         top: isMobile ? 0 : undefined,
         ...mobileStyles,
-        zIndex: isActive ? 1000 : 999,
+        zIndex: zIndex,
         display: isMinimized ? 'none' : 'block',
         willChange: isDragging ? 'transform' : 'auto',
         transition: isDragging ? 'none' : 'all 0.2s'
       }}
-      onClick={() => setIsActive(true)}
+      onClick={() => {
+        setIsActive(true);
+        handleWindowClick();
+      if (onFocus) onFocus();
+      }}
     >
       {/* Title Bar */}
       <div

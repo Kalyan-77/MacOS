@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import finder from "../../assets/AppIcons/finder.png";
 import launchpad from "../../assets/AppIcons/launchpad.png";
 import preferences from "../../assets/AppIcons/preferences.png";
@@ -24,30 +24,33 @@ import figma from "../../assets/AppIcons/figma.webp";
 import zoom from "../../assets/AppIcons/zoom.webp";
 import teams from "../../assets/AppIcons/teams.jpg";
 
-export default function Dock({ toggleApp }) {
+export default function Dock({ toggleApp, activeApps = {}, userId }) {
   const [hovered, setHovered] = useState(null);
   const [showAllApps, setShowAllApps] = useState(false);
+  const [installedApps, setInstalledApps] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const apps = [
-    { name: "Finder", icon: finder, action: () => toggleApp("filemanager") },
+  // All available apps with their metadata
+  const allAvailableApps = [
+    { name: "Finder", icon: finder, action: () => toggleApp("filemanager"), key: "filemanager" },
     { name: "Launchpad", icon: launchpad },
     { name: "Preferences", icon: preferences },
     { name: "Contacts", icon: contacts },
-    { name: "Notes", icon: notes, action: () => toggleApp("notepad") },
-    { name: "App Store", icon: AppStore,action: () => toggleApp("appstore") },
-    { name: "Calculator", icon: calculator, action: () => toggleApp("calculator") },
-    { name: "Calendar", icon: calender, action: () => toggleApp("calendar") },
-    { name: "Terminal", icon: terminal, action: () => toggleApp("terminal") },
-    { name: "VS Code", icon: vscode, action: () => toggleApp("vscode") },
-    { name: "Photos", icon: photos, action: () => toggleApp("photos")},
+    { name: "Notes", icon: notes, action: () => toggleApp("notepad"), key: "notepad" },
+    { name: "App Store", icon: AppStore, action: () => toggleApp("appstore"), key: "appstore" },
+    { name: "Calculator", icon: calculator, action: () => toggleApp("calculator"), key: "calculator" },
+    { name: "Calendar", icon: calender, action: () => toggleApp("calendar"), key: "calendar" },
+    { name: "Terminal", icon: terminal, action: () => toggleApp("terminal"), key: "terminal" },
+    { name: "VS Code", icon: vscode, action: () => toggleApp("vscode"), key: "vscode" },
+    { name: "Photos", icon: photos, action: () => toggleApp("photos"), key: "photos" },
     { name: "Messages", icon: message },
-    { name: "Maps", icon: maps, action: () => toggleApp("maps") },
+    { name: "Maps", icon: maps, action: () => toggleApp("maps"), key: "maps" },
     { name: "Mail", icon: mail },
-    { name: "Trash", icon: bin, action: () => toggleApp("trash") },
-    { name: "Music", icon: music, action: () => toggleApp("musicplayer") },
+    { name: "Trash", icon: bin, action: () => toggleApp("trash"), key: "trash" },
+    { name: "Music", icon: music, action: () => toggleApp("musicplayer"), key: "musicplayer" },
     { name: "Reminders", icon: remainder },
-    { name: "Edge", icon: edge, action: () => toggleApp("edge") },
-    { name: "VLC", icon: vlc, action: () => toggleApp("vlcplayer") },
+    { name: "Edge", icon: edge, action: () => toggleApp("edge"), key: "edge" },
+    { name: "VLC", icon: vlc, action: () => toggleApp("vlcplayer"), key: "vlcplayer" },
     { name: "Photoshop", icon: photos },
     { name: "Illustrator", icon: photos },
     { name: "Premiere", icon: vlc },
@@ -61,25 +64,85 @@ export default function Dock({ toggleApp }) {
     { name: "Teams", icon: teams },
     { name: "Chrome", icon: edge },
     { name: "Chess", icon: chess },
-    { name: "VideoPlayer", icon: TV, action: () => toggleApp("videoplayer") },
-    // { name: "Notion", icon: notes },
-    // { name: "Obsidian", icon: notes },
-    
+    { name: "VideoPlayer", icon: TV, action: () => toggleApp("videoplayer"), key: "videoplayer" },
   ];
 
-  // Main dock apps (visible on desktop dock)
-  const mainDockApps = apps.slice(0, 19); // Show first 12 apps in main dock
+  // Fetch installed apps from database
+  useEffect(() => {
+    const fetchInstalledApps = async () => {
+      if (!userId) {
+        console.log('❌ No userId provided, setting loading to false');
+        setLoading(false);
+        return;
+      }
 
-  // Essential apps for small screens  
-  const essentialApps = [
-    apps.find(app => app.name === "Finder"),
-    apps.find(app => app.name === "Edge"),
-    apps.find(app => app.name === "Terminal"),
-    apps.find(app => app.name === "App Store")
-  ];
+      try {
+        console.log('🔍 Fetching installed apps for userId:', userId);
+        const apiUrl = `http://localhost:5000/config/get/${userId}`;
+        console.log('📡 API URL:', apiUrl);
+        
+        const response = await fetch(apiUrl, {
+          credentials: 'include'
+        });
+        
+        console.log('📨 Response status:', response.status);
+        
+        if (response.ok) {
+          const config = await response.json();
+          console.log('✅ Config received:', config);
+          const dbAppNames = config.desktopApps || [];
+          console.log('📱 Desktop apps from DB:', dbAppNames);
+          console.log('📱 Type of desktopApps:', typeof dbAppNames, Array.isArray(dbAppNames));
+          
+          // Log all available app names for comparison
+          console.log('🎯 Available app names:', allAvailableApps.map(a => a.name));
+          
+          // Filter apps based on database
+          const appsToShow = allAvailableApps.filter(app => {
+            const isIncluded = dbAppNames.includes(app.name);
+            console.log(`Checking "${app.name}":`, isIncluded);
+            return isIncluded;
+          });
+          
+          console.log('✨ Apps to show:', appsToShow.map(a => a.name));
+          setInstalledApps(appsToShow);
+          console.log('✅ Installed apps set:', appsToShow.length, 'apps');
+        } else if (response.status === 404) {
+          console.log('⚠️ No configuration found (404) - showing empty dock');
+          setInstalledApps([]);
+        } else {
+          console.error('❌ Error fetching config, status:', response.status);
+          const errorText = await response.text();
+          console.error('❌ Error response:', errorText);
+          setInstalledApps([]);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching installed apps:', error);
+        console.error('❌ Error details:', error.message);
+        setInstalledApps([]);
+      } finally {
+        console.log('🏁 Setting loading to false');
+        setLoading(false);
+      }
+    };
 
-  // All apps for the full screen grid view
-  const allApps = apps;
+    fetchInstalledApps();
+  }, [userId]);
+
+  // Always include Launchpad at the beginning
+  const launchpadApp = allAvailableApps.find(app => app.name === "Launchpad");
+  
+  // Main dock apps (first 15 from installed apps, excluding Launchpad if already present)
+  const filteredApps = installedApps.filter(app => app.name !== "Launchpad");
+  const mainDockApps = launchpadApp 
+    ? [launchpadApp, ...filteredApps.slice(0, 14)]
+    : installedApps.slice(0, 15);
+
+  // Essential apps for mobile (always include Launchpad + 3 more)
+  const mobileFilteredApps = installedApps.filter(app => app.name !== "Launchpad");
+  const essentialApps = launchpadApp
+    ? [launchpadApp, ...mobileFilteredApps.slice(0, 3)]
+    : installedApps.slice(0, 4);
 
   const getScale = (index) => {
     if (hovered === null) return 1;
@@ -113,23 +176,49 @@ export default function Dock({ toggleApp }) {
     setShowAllApps(!showAllApps);
   };
 
+  // Check if an app is active
+  const isAppActive = (appKey) => {
+    return appKey && activeApps[appKey] === true;
+  };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 w-[90%]">
+        <div className="backdrop-blur-md bg-white/5 px-4 py-3 rounded-2xl flex items-center justify-center">
+          <div className="text-white text-sm">Loading apps...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show empty state if no apps installed
+  if (installedApps.length === 0) {
+    return (
+      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 w-[90%]">
+        <div className="backdrop-blur-md bg-white/5 px-4 py-3 rounded-2xl flex items-center justify-center">
+          <div className="text-white text-sm">No apps installed</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* CSS to hide scrollbar */}
       <style jsx>{`
         .hide-scrollbar {
-          -ms-overflow-style: none;  /* IE and Edge */
-          scrollbar-width: none;  /* Firefox */
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
         .hide-scrollbar::-webkit-scrollbar {
-          display: none;  /* Chrome, Safari, Opera */
+          display: none;
         }
       `}</style>
       
-      {/* Full Screen App Grid Overlay for Desktop and Small Screens */}
+      {/* Full Screen App Grid Overlay */}
       {showAllApps && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-lg flex flex-col">
-          {/* Header - Fixed */}
           <div className="flex items-center justify-between p-6 pt-12 flex-shrink-0">
             <h1 className="text-white text-2xl font-bold">All Apps</h1>
             <button
@@ -142,23 +231,25 @@ export default function Dock({ toggleApp }) {
             </button>
           </div>
           
-          {/* Apps Grid - Scrollable */}
-          <div 
-            className="flex-1 overflow-y-auto overflow-x-hidden px-6 hide-scrollbar"
-          >
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 hide-scrollbar">
             <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-6 pb-6 min-h-full justify-items-center">
-              {allApps.map((app, idx) => (
+              {installedApps.map((app, idx) => (
                 <div
                   key={`${app.name}-${idx}`}
-                  className="flex flex-col items-center cursor-pointer group"
+                  className="flex flex-col items-center cursor-pointer group relative"
                   onClick={() => handleAppClick(app)}
                 >
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 mb-2 group-hover:scale-110 group-active:scale-95 transition-transform duration-200">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 mb-2 group-hover:scale-110 group-active:scale-95 transition-transform duration-200 relative">
                     <img
                       src={app.icon}
                       alt={app.name}
                       className="w-full h-full rounded-2xl shadow-lg"
                     />
+                    {isAppActive(app.key) && (
+                      <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2">
+                        <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                      </div>
+                    )}
                   </div>
                   <span className="text-white text-xs sm:text-sm text-center font-medium leading-tight max-w-[70px] sm:max-w-[80px] break-words">
                     {app.name}
@@ -168,7 +259,6 @@ export default function Dock({ toggleApp }) {
             </div>
           </div>
           
-          {/* Close indicator at bottom - Fixed */}
           <div className="flex justify-center pb-6 pt-2 flex-shrink-0">
             <div className="w-12 h-1 bg-white/30 rounded-full"></div>
           </div>
@@ -179,13 +269,13 @@ export default function Dock({ toggleApp }) {
       <div className="absolute bottom-5 left-1/2 -translate-x-1/2 w-[90%]">
         {/* Desktop Dock */}
         <div
-          className="hidden sm:flex backdrop-blur-md bg-white/5 px-2 py-2 rounded-2xl items-end justify-center gap-4 shadow-sm w-[100%]"
+          className="hidden sm:flex backdrop-blur-md bg-white/5 px-2 py-2 rounded-2xl items-end justify-center gap-6 shadow-sm w-[100%]"
           onMouseLeave={() => setHovered(null)}
         >
           {mainDockApps.map((app, idx) => (
             <div
               key={idx}
-              className="cursor-pointer flex items-end relative"
+              className="cursor-pointer flex flex-col items-center relative"
               onMouseEnter={() => setHovered(idx)}
               onClick={() => app.action && app.action()}
               style={{
@@ -213,11 +303,17 @@ export default function Dock({ toggleApp }) {
                   height: "60px",
                 }}
               />
+              
+              {isAppActive(app.key) && (
+                <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2">
+                  <div className="w-1.5 h-1.5 bg-white/90 rounded-full shadow-lg"></div>
+                </div>
+              )}
             </div>
           ))}
           
-          {/* More Apps Button for Desktop */}
-          {apps.length > 12 && (
+          {/* More Apps Button - Shows when there are more than 15 apps */}
+          {installedApps.length > 15 && (
             <div
               className="cursor-pointer flex items-end relative"
               onMouseEnter={() => setHovered(mainDockApps.length)}
@@ -262,19 +358,24 @@ export default function Dock({ toggleApp }) {
         </div>
 
         {/* Mobile Dock */}
-        <div className="sm:hidden backdrop-blur-md bg-white/5 px-4 py-3 rounded-2xl flex items-center justify-center gap-6 shadow-sm">
+        <div className="sm:hidden backdrop-blur-md bg-white/5 px-4 py-3 rounded-2xl flex items-center justify-center gap-8 shadow-sm">
           {essentialApps.map((app, idx) => (
             <div
               key={idx}
-              className="cursor-pointer flex flex-col items-center group"
+              className="cursor-pointer flex flex-col items-center group relative"
               onClick={() => handleAppClick(app)}
             >
-              <div className="w-12 h-12 mb-1 group-hover:scale-110 group-active:scale-95 transition-transform duration-200">
+              <div className="w-12 h-12 mb-1 group-hover:scale-110 group-active:scale-95 transition-transform duration-200 relative">
                 <img
                   src={app.icon}
                   alt={app.name}
                   className="w-full h-full rounded-xl"
                 />
+                {isAppActive(app.key) && (
+                  <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2">
+                    <div className="w-1.5 h-1.5 bg-white/90 rounded-full shadow-lg"></div>
+                  </div>
+                )}
               </div>
               <span className="text-white text-xs font-medium">
                 {app.name}
@@ -283,24 +384,26 @@ export default function Dock({ toggleApp }) {
           ))}
           
           {/* More Apps Button */}
-          <div
-            className="cursor-pointer flex flex-col items-center group"
-            onClick={handleMoreAppsClick}
-          >
-            <div className="w-12 h-12 mb-1 bg-gray-700/80 rounded-xl flex items-center justify-center group-hover:scale-110 group-active:scale-95 transition-transform duration-200">
-              <div className="grid grid-cols-2 gap-1">
-                <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+          {installedApps.length > 4 && (
+            <div
+              className="cursor-pointer flex flex-col items-center group"
+              onClick={handleMoreAppsClick}
+            >
+              <div className="w-12 h-12 mb-1 bg-gray-700/80 rounded-xl flex items-center justify-center group-hover:scale-110 group-active:scale-95 transition-transform duration-200">
+                <div className="grid grid-cols-2 gap-1">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                </div>
               </div>
+              <span className="text-white text-xs font-medium">
+                More
+              </span>
             </div>
-            <span className="text-white text-xs font-medium">
-              More
-            </span>
-          </div>
+          )}
         </div>
       </div>
     </>

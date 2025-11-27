@@ -15,7 +15,7 @@ import mail from '../../assets/AppIcons/mail.png';
 import notes from '../../assets/AppIcons/notes.png';
 import reminders from '../../assets/AppIcons/reminders.png';
 
-export default function AppStore({ onClose }) {
+export default function AppStore({ onClose, zIndex = 1000, onFocus   }) {
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [prevPosition, setPrevPosition] = useState({ x: 200, y: 100 });
@@ -210,6 +210,10 @@ export default function AppStore({ onClose }) {
         if (titleBar && !isButton) {
           e.preventDefault();
           e.stopPropagation();
+
+          if (onFocus) {
+            onFocus();
+          }
           
           dragState.current.holdingWindow = true;
           setIsActive(true);
@@ -306,6 +310,7 @@ export default function AppStore({ onClose }) {
 
   const handleWindowClick = () => {
     setIsActive(true);
+    if (onFocus) onFocus();
   };
 
   // Filter apps based on search query
@@ -331,14 +336,17 @@ export default function AppStore({ onClose }) {
       style={{
         left: 0,
         top: 0,
-        width: isMaximized ? '100vw' : '1100px',
-        height: isMaximized ? 'calc(100vh - 25px)' : '700px',
-        zIndex: isActive ? 1000 : 999,
+        width: isMaximized ? '100vw' : '1000px',
+        height: isMaximized ? 'calc(100vh - 25px)' : '600px',
+        zIndex: zIndex,
         display: isMinimized ? 'none' : 'block',
         willChange: isDragging ? 'transform' : 'auto',
         transition: isDragging ? 'none' : 'all 0.2s'
       }}
-      onClick={handleWindowClick}
+      onClick={() => {
+        handleWindowClick();
+        if (onFocus) onFocus();
+      }}
     >
       {/* Title Bar */}
       <div className="title-bar h-12 bg-gray-100 border-b border-gray-200 flex items-center justify-between px-4">

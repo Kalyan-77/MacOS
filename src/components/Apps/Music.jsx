@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { X, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Shuffle, Heart, MoreVertical, List, RefreshCw } from 'lucide-react';
 import { BASE_URL } from '../../../config';
 
-export default function MusicPlayer({ onClose, fileToOpen = null, userId }) {
+export default function MusicPlayer({ onClose, fileToOpen = null, userId,zIndex = 1000, onFocus  }) {
   const [playlist, setPlaylist] = useState([]);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -199,6 +199,10 @@ export default function MusicPlayer({ onClose, fileToOpen = null, userId }) {
         if (titleBar && !isButton) {
           e.preventDefault();
           e.stopPropagation();
+
+            if (onFocus) {
+              onFocus();
+            }
           
           dragState.current.holdingWindow = true;
           setIsActive(true);
@@ -261,6 +265,10 @@ export default function MusicPlayer({ onClose, fileToOpen = null, userId }) {
     }
     onClose();
   };
+  const handleWindowClick = () => {
+  setIsActive(true);
+  if (onFocus) onFocus();  // ADD THIS
+};
 
   const handleMinimize = () => setIsMinimized(!isMinimized);
 
@@ -376,12 +384,16 @@ export default function MusicPlayer({ onClose, fileToOpen = null, userId }) {
         height: isMaximized ? 'calc(100vh - 25px)' : '650px',
         minWidth: '700px',
         minHeight: '550px',
-        zIndex: isActive ? 1000 : 999,
+        zIndex: zIndex,
         display: isMinimized ? 'none' : 'block',
         willChange: isDragging ? 'transform' : 'auto',
         transition: isDragging ? 'none' : 'all 0.2s'
       }}
-      onClick={() => setIsActive(true)}
+      onClick={() => {
+        setIsActive(true);
+        handleWindowClick();
+        if (onFocus) onFocus();
+      }}
     >
       {/* Hidden Audio Element */}
       <audio ref={audioRef} />

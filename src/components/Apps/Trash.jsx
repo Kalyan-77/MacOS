@@ -9,7 +9,7 @@ import {
 import { BASE_URL } from '../../../config';
 
 
-export default function Trash({ onClose }) {
+export default function Trash({ onClose , zIndex = 1000, onFocus  }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState('grid');
@@ -440,6 +440,10 @@ export default function Trash({ onClose }) {
         if (titleBar && !isButton) {
           e.preventDefault();
           e.stopPropagation();
+
+            if (onFocus) {
+              onFocus();
+            }
           
           dragState.current.holdingWindow = true;
           setIsActive(true);
@@ -474,6 +478,11 @@ export default function Trash({ onClose }) {
           animationFrame = null;
         }
       }
+    };
+
+    const handleWindowClick = () => {
+      setIsActive(true);
+      if (onFocus) onFocus();
     };
 
     document.addEventListener('mousemove', handleMouseMove, { passive: false });
@@ -543,12 +552,16 @@ export default function Trash({ onClose }) {
         left: isMobile ? 0 : undefined,
         top: isMobile ? 0 : undefined,
         ...mobileStyles,
-        zIndex: isActive ? 1000 : 999,
+        zIndex: zIndex,
         display: isMinimized ? 'none' : 'block',
         willChange: isDragging ? 'transform' : 'auto',
         transition: isDragging ? 'none' : 'all 0.2s'
       }}
-      onClick={() => setIsActive(true)}
+      onClick={() => {
+        setIsActive(true);
+        handleWindowClick();
+        if (onFocus) onFocus();
+      }}
     >
       {/* Title Bar */}
       <div

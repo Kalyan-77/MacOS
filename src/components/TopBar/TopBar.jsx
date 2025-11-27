@@ -2,10 +2,55 @@ import { useState, useEffect } from "react";
 import { Wifi, Search } from "lucide-react";
 import white from "../../assets/BasicIcons/white.png";
 
-export default function TopBar() {
+// Import app icons
+import AppStore from "../../assets/AppIcons/appstore.png";
+import finder from "../../assets/AppIcons/finder.png";
+import notes from "../../assets/AppIcons/notes.png";
+import calculator from "../../assets/AppIcons/calculator.png";
+import calender from "../../assets/AppIcons/calendar.png";
+import terminal from "../../assets/AppIcons/terminal.png";
+import vscode from "../../assets/AppIcons/vscode.svg";
+import photos from "../../assets/AppIcons/photos.png";
+import maps from "../../assets/AppIcons/maps.png";
+import edge from "../../assets/AppIcons/edge.png";
+import vlc from "../../assets/AppIcons/vlc.png";
+import TV from "../../assets/AppIcons/TV.jpg";
+import bin from "../../assets/AppIcons/bin.png";
+import music from "../../assets/AppIcons/music.png";
+
+export default function TopBar({ activeApps = {} }) {
   const [showAppleMenu, setShowAppleMenu] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
   const [showControlCenter, setShowControlCenter] = useState(false);
+
+  // Map of app keys to their icons and display names
+  const appIconMap = {
+    appstore: { icon: AppStore, name: "App Store" },
+    filemanager: { icon: finder, name: "Finder" },
+    notepad: { icon: notes, name: "Notes" },
+    calculator: { icon: calculator, name: "Calculator" },
+    calendar: { icon: calender, name: "Calendar" },
+    terminal: { icon: terminal, name: "Terminal" },
+    vscode: { icon: vscode, name: "VS Code" },
+    photos: { icon: photos, name: "Photos" },
+    maps: { icon: maps, name: "Maps" },
+    edge: { icon: edge, name: "Edge" },
+    vlcplayer: { icon: vlc, name: "VLC" },
+    videoplayer: { icon: TV, name: "Video Player" },
+    trash: { icon: bin, name: "Trash" },
+    musicplayer: { icon: music, name: "Music" },
+  };
+
+  // Get currently active apps
+  const getActiveApps = () => {
+    return Object.entries(activeApps)
+      .filter(([key, value]) => value === true)
+      .map(([key]) => ({
+        key,
+        ...appIconMap[key]
+      }))
+      .filter(app => app.icon); // Only include apps that have icons mapped
+  };
 
   const handleAppleClick = () => {
     setShowAppleMenu(!showAppleMenu);
@@ -38,13 +83,15 @@ export default function TopBar() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
+  const activeAppsList = getActiveApps();
+
   return (
     <div className="fixed top-0 w-full h-8 backdrop-blur-xl bg-black/20 text-white flex items-center justify-between px-2 sm:px-4 py-5 select-none shadow-lg z-50">
       
       {/* Left Side */}
-      <div className="flex items-center gap-2 sm:gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
         {/* Apple Menu */}
-        <div className="relative menu-container">
+        <div className="relative menu-container flex-shrink-0">
           <div 
             className="h-4 cursor-pointer flex items-center justify-center text-white font-bold text-sm hover:bg-white/20 rounded px-1"
             onClick={handleAppleClick}
@@ -63,8 +110,10 @@ export default function TopBar() {
           )}
         </div>
 
+      
+
         {/* File Menu */}
-        <div className="relative menu-container">
+        <div className="relative menu-container flex-shrink-0">
           <span
             className="px-2 py-0.5 rounded hover:bg-white/20 cursor-pointer text-sm"
             onClick={handleFileClick}
@@ -80,7 +129,7 @@ export default function TopBar() {
         </div>
 
         {/* Other Menu Items - Hidden on smaller screens */}
-        <div className=" sm:flex items-center gap-2 lg:gap-4">
+        <div className="hidden lg:flex items-center gap-2 lg:gap-4 flex-shrink-0">
           {["Edit", "View", "Go", "Tools", "Help"].map((item) => (
             <span
               key={item}
@@ -90,22 +139,34 @@ export default function TopBar() {
             </span>
           ))}
         </div>
-
-        {/* Show only first few menu items on medium screens */}
-        {/* <div className="hidden xs:flex sm:hidden items-center gap-2">
-          {["Edit", "View"].map((item) => (
-            <span
-              key={item}
-              className="px-2 py-0.5 rounded hover:bg-white/20 cursor-pointer text-sm"
-            >
-              {item}
-            </span>
-          ))}
-        </div> */}
       </div>
+      {/* Active App Icons */}
+        {activeAppsList.length > 0 && (
+          <>
+            <div className="h-4 w-px bg-white/30 flex-shrink-0"></div>
+            <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide ml-1 min-w-0">
+              {activeAppsList.map((app) => (
+                <div
+                  key={app.key}
+                  className="flex items-center gap-2 flex-shrink-0 hover:bg-white/10 rounded px-2 py-1 transition-colors"
+                  title={app.name}
+                >
+                  <img
+                    src={app.icon}
+                    alt={app.name}
+                    className="h-4 w-4 object-contain rounded"
+                  />
+                  <span className="text-sm font-medium hidden md:inline whitespace-nowrap">
+                    {app.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
       {/* Right Side */}
-      <div className="flex items-center gap-2 sm:gap-4 text-sm">
+      <div className="flex items-center gap-2 sm:gap-4 text-sm flex-shrink-0">
         {/* Battery Status - Hidden on small screens */}
         <div className="hidden md:block">
           <BatteryStatus />
@@ -144,6 +205,16 @@ export default function TopBar() {
 
         <DateTime /> 
       </div>
+
+      <style jsx>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </div>
   );
 }

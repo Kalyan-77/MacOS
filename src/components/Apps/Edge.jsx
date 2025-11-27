@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, RotateCcw, Home, Star, MoreHorizontal, Shield, Settings, User, Search, Clock, Bookmark, Globe, TrendingUp, Menu } from 'lucide-react';
 
 // Edge New Tab Component
-function EdgeNewTab({ onSearch }) {
+function EdgeNewTab({ onSearch}) {
   const [searchQuery, setSearchQuery] = useState('');
   
   const quickLinks = [
@@ -77,7 +77,7 @@ function EdgeNewTab({ onSearch }) {
   );
 }
 
-export default function EdgeBrowser({ onClose }) {
+export default function EdgeBrowser({ onClose,zIndex = 1000, onFocus   }) {
   // Browser state
   const [url, setUrl] = useState('edge://newtab');
   const [inputUrl, setInputUrl] = useState('');
@@ -233,6 +233,10 @@ export default function EdgeBrowser({ onClose }) {
         if (titleBar && !isButton) {
           e.preventDefault();
           e.stopPropagation();
+
+            if (onFocus) {
+              onFocus();
+            }
           
           dragState.current.holdingWindow = true;
           setIsActive(true);
@@ -332,6 +336,7 @@ export default function EdgeBrowser({ onClose }) {
 
   const handleWindowClick = () => {
     setIsActive(true);
+    if (onFocus) onFocus();
   };
 
   // Calculate responsive dimensions
@@ -381,12 +386,15 @@ export default function EdgeBrowser({ onClose }) {
         top: 0,
         width: dimensions.width,
         height: dimensions.height,
-        zIndex: isActive ? 1000 : 999,
+        zIndex: zIndex,
         display: isMinimized ? 'none' : 'block',
         willChange: isDragging ? 'transform' : 'auto',
         transition: isDragging ? 'none' : 'all 0.2s'
       }}
-      onClick={handleWindowClick}
+      onClick={() =>{
+        handleWindowClick();
+        if(onFocus) onFocus();
+      }}
     >
       {/* Title Bar */}
       <div

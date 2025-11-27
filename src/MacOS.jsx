@@ -469,6 +469,9 @@ export default function MacOS() {
     musicplayer: false,
   });
 
+  const [appZIndices, setAppZIndices] = useState({});
+  const [highestZIndex, setHighestZIndex] = useState(1000);
+
   const [desktopItems, setDesktopItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, selectedItem: null });
@@ -746,12 +749,34 @@ export default function MacOS() {
     };
   };
 
-  const toggleApp = (appName) => {
-    setOpenApps((prev) => ({
+const toggleApp = (appName) => {
+  setOpenApps((prev) => {
+    const newState = {
       ...prev,
       [appName]: !prev[appName],
-    }));
-  };
+    };
+    
+    // If opening the app (not closing), give it the highest z-index
+    if (!prev[appName]) {
+      const newZIndex = highestZIndex + 1;
+      setAppZIndices((prevIndices) => ({
+        ...prevIndices,
+        [appName]: newZIndex,
+      }));
+      setHighestZIndex(newZIndex);
+    }
+    
+    return newState;
+  });
+};
+const bringToFront = (appName) => {
+  const newZIndex = highestZIndex + 1;
+  setAppZIndices((prevIndices) => ({
+    ...prevIndices,
+    [appName]: newZIndex,
+  }));
+  setHighestZIndex(newZIndex);
+};
 
   const handleItemMenuClick = (item, action) => {
     switch (action) {
@@ -988,7 +1013,7 @@ export default function MacOS() {
       onContextMenu={handleRightClick}
       onClick={handleDesktopClick}
     >
-      <TopBar />
+      <TopBar activeApps={openApps} />
 
       <div className="flex-1 relative">
         <div className="absolute inset-0">
@@ -1020,57 +1045,142 @@ export default function MacOS() {
           </div>
         )}
 
-        {openApps.notepad && <NotePad onClose={() => {
-          toggleApp("notepad");
-          setFileToOpen(null);
-        }} fileToOpen={fileToOpen} userId={userId} />}
-        {openApps.calculator && <Calculator onClose={() => toggleApp("calculator")} />}
-        {openApps.calendar && <Calendar onClose={() => toggleApp("calendar")} />}
-        {openApps.vscode && <VSCode onClose={() => toggleApp("vscode")} />}
-        {openApps.maps && <Maps onClose={() => toggleApp("maps")} />}
-        {openApps.edge && <Edge onClose={() => toggleApp("edge")} />}
-        {openApps.vlcplayer && <VLCPlayer onClose={() => toggleApp("vlcplayer")} />}
-        {openApps.terminal && <TerminalTab onClose={() => toggleApp("terminal")} />}
-        {openApps.filemanager && (
-          <FileManager 
-            onClose={() => toggleApp("filemanager")} 
-            toggleApp={toggleApp}
-            setFileToOpen={setFileToOpen}
-            userId={userId}
-          />
-        )}
-       {openApps.photos && (
-          <Photos 
-            onClose={() => {
-              toggleApp("photos");
-              setFileToOpen(null);
-            }} 
-            fileToOpen={fileToOpen} 
-            userId={userId} 
-          />
-        )}
-        {openApps.videoplayer && (
-          <VideoPlayer 
-            onClose={() => {
-              toggleApp("videoplayer");
-              setFileToOpen(null);
-            }} 
-            fileToOpen={fileToOpen} 
-            userId={userId} 
-          />
-        )}
-        {openApps.trash && <Trash onClose={() => toggleApp("trash")} />}
-        {openApps.appstore && <AppStore onClose={() => toggleApp("appstore")} />}
-        {openApps.musicplayer && (
-          <MusicPlayer 
-            onClose={() => {
-              toggleApp("musicplayer");
-              setFileToOpen(null);
-            }} 
-            fileToOpen={fileToOpen} 
-            userId={userId} 
-          />
-        )}
+        // Update these app renderings in your MacOS component:
+
+{openApps.notepad && (
+  <NotePad 
+    onClose={() => {
+      toggleApp("notepad");
+      setFileToOpen(null);
+    }} 
+    fileToOpen={fileToOpen} 
+    userId={userId}
+    zIndex={appZIndices.notepad || 1000}
+    onFocus={() => bringToFront("notepad")}
+  />
+)}
+
+{openApps.calculator && (
+  <Calculator 
+    onClose={() => toggleApp("calculator")}
+    zIndex={appZIndices.calculator || 1000}
+    onFocus={() => bringToFront("calculator")}
+  />
+)}
+
+{openApps.calendar && (
+  <Calendar 
+    onClose={() => toggleApp("calendar")}
+    zIndex={appZIndices.calendar || 1000}
+    onFocus={() => bringToFront("calendar")}
+  />
+)}
+
+{openApps.vscode && (
+  <VSCode 
+    onClose={() => toggleApp("vscode")}
+    zIndex={appZIndices.vscode || 1000}
+    onFocus={() => bringToFront("vscode")}
+  />
+)}
+
+{openApps.maps && (
+  <Maps 
+    onClose={() => toggleApp("maps")} 
+    zIndex={appZIndices.maps || 1000}
+    onFocus={() => bringToFront("maps")}
+  />
+)}
+
+{openApps.edge && (
+  <Edge
+    onClose={() => toggleApp("edge")}
+    zIndex={appZIndices.edge || 1000}
+    onFocus={() => bringToFront("edge")}
+  />
+)}
+
+{openApps.vlcplayer && (
+  <VLCPlayer 
+    onClose={() => toggleApp("vlcplayer")}
+    zIndex={appZIndices.vlcplayer || 1000}
+    onFocus={() => bringToFront("vlcplayer")}
+  />
+)}
+
+{openApps.terminal && (
+  <TerminalTab 
+    onClose={() => toggleApp("terminal")}
+    zIndex={appZIndices.terminal || 1000}
+    onFocus={() => bringToFront("terminal")}
+  />
+)}
+
+{openApps.filemanager && (
+  <FileManager 
+    onClose={() => toggleApp("filemanager")} 
+    zIndex={appZIndices.filemanager || 1000}
+    onFocus={() => bringToFront("filemanager")}
+    toggleApp={toggleApp}
+    setFileToOpen={setFileToOpen}
+    userId={userId}
+  />
+)}
+
+{openApps.photos && (
+  <Photos 
+    onClose={() => {
+      toggleApp("photos");
+      setFileToOpen(null);
+    }} 
+    fileToOpen={fileToOpen} 
+    userId={userId}
+    zIndex={appZIndices.photos || 1000}
+    onFocus={() => bringToFront("photos")}
+  />
+)}
+
+{openApps.videoplayer && (
+  <VideoPlayer 
+    onClose={() => {
+      toggleApp("videoplayer");
+      setFileToOpen(null);
+    }} 
+    fileToOpen={fileToOpen} 
+    userId={userId}
+    zIndex={appZIndices.videoplayer || 1000}
+    onFocus={() => bringToFront("videoplayer")}
+  />
+)}
+
+{openApps.trash && (
+  <Trash 
+    onClose={() => toggleApp("trash")}
+    zIndex={appZIndices.trash || 1000}
+    onFocus={() => bringToFront("trash")}
+  />
+)}
+
+{openApps.appstore && (
+  <AppStore 
+    onClose={() => toggleApp("appstore")}
+    zIndex={appZIndices.appstore || 1000}
+    onFocus={() => bringToFront("appstore")}
+  />
+)}
+
+{openApps.musicplayer && (
+  <MusicPlayer 
+    onClose={() => {
+      toggleApp("musicplayer");
+      setFileToOpen(null);
+    }} 
+    fileToOpen={fileToOpen} 
+    userId={userId}
+    zIndex={appZIndices.musicplayer || 1000}
+    onFocus={() => bringToFront("musicplayer")}
+  />
+)}
         
       </div>
 
@@ -1123,7 +1233,11 @@ export default function MacOS() {
         />
       )}
 
-      <Dock toggleApp={toggleApp} />
+      <Dock 
+        toggleApp={toggleApp} 
+        activeApps={openApps} 
+        userId={userId}   
+      />
     </div>
   );
 }
