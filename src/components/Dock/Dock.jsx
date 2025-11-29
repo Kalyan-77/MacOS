@@ -23,6 +23,7 @@ import TV from "../../assets/AppIcons/TV.jpg";
 import figma from "../../assets/AppIcons/figma.webp";
 import zoom from "../../assets/AppIcons/zoom.webp";
 import teams from "../../assets/AppIcons/teams.jpg";
+import { BASE_URL } from "../../../config";
 
 export default function Dock({ toggleApp, activeApps = {}, userId }) {
   const [hovered, setHovered] = useState(null);
@@ -78,7 +79,7 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
 
       try {
         console.log('🔍 Fetching installed apps for userId:', userId);
-        const apiUrl = `http://localhost:5000/config/get/${userId}`;
+        const apiUrl = `${BASE_URL}/config/get/${userId}`;
         console.log('📡 API URL:', apiUrl);
         
         const response = await fetch(apiUrl, {
