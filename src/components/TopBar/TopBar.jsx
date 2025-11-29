@@ -18,28 +18,28 @@ import TV from "../../assets/AppIcons/TV.jpg";
 import bin from "../../assets/AppIcons/bin.png";
 import music from "../../assets/AppIcons/music.png";
 
+// Map of app keys to their icons and display names
+const appIconMap = {
+  appstore: { icon: AppStore, name: "App Store" },
+  filemanager: { icon: finder, name: "Finder" },
+  notepad: { icon: notes, name: "Notes" },
+  calculator: { icon: calculator, name: "Calculator" },
+  calendar: { icon: calender, name: "Calendar" },
+  terminal: { icon: terminal, name: "Terminal" },
+  vscode: { icon: vscode, name: "VS Code" },
+  photos: { icon: photos, name: "Photos" },
+  maps: { icon: maps, name: "Maps" },
+  edge: { icon: edge, name: "Edge" },
+  vlcplayer: { icon: vlc, name: "VLC" },
+  videoplayer: { icon: TV, name: "Video Player" },
+  trash: { icon: bin, name: "Trash" },
+  musicplayer: { icon: music, name: "Music" },
+};
+
 export default function TopBar({ activeApps = {} }) {
   const [showAppleMenu, setShowAppleMenu] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
   const [showControlCenter, setShowControlCenter] = useState(false);
-
-  // Map of app keys to their icons and display names
-  const appIconMap = {
-    appstore: { icon: AppStore, name: "App Store" },
-    filemanager: { icon: finder, name: "Finder" },
-    notepad: { icon: notes, name: "Notes" },
-    calculator: { icon: calculator, name: "Calculator" },
-    calendar: { icon: calender, name: "Calendar" },
-    terminal: { icon: terminal, name: "Terminal" },
-    vscode: { icon: vscode, name: "VS Code" },
-    photos: { icon: photos, name: "Photos" },
-    maps: { icon: maps, name: "Maps" },
-    edge: { icon: edge, name: "Edge" },
-    vlcplayer: { icon: vlc, name: "VLC" },
-    videoplayer: { icon: TV, name: "Video Player" },
-    trash: { icon: bin, name: "Trash" },
-    musicplayer: { icon: music, name: "Music" },
-  };
 
   // Get currently active apps
   const getActiveApps = () => {
@@ -49,7 +49,7 @@ export default function TopBar({ activeApps = {} }) {
         key,
         ...appIconMap[key]
       }))
-      .filter(app => app.icon); // Only include apps that have icons mapped
+      .filter(app => app.icon);
   };
 
   const handleAppleClick = () => {
@@ -110,8 +110,6 @@ export default function TopBar({ activeApps = {} }) {
           )}
         </div>
 
-      
-
         {/* File Menu */}
         <div className="relative menu-container flex-shrink-0">
           <span
@@ -139,12 +137,12 @@ export default function TopBar({ activeApps = {} }) {
             </span>
           ))}
         </div>
-      </div>
-      {/* Active App Icons */}
+
+        {/* Active App Icons - REVERSED with flex-row-reverse */}
         {activeAppsList.length > 0 && (
           <>
             <div className="h-4 w-px bg-white/30 flex-shrink-0"></div>
-            <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide ml-1 min-w-0">
+            <div className="flex flex-row-reverse items-center gap-3 overflow-x-auto scrollbar-hide ml-1 min-w-0">
               {activeAppsList.map((app) => (
                 <div
                   key={app.key}
@@ -164,6 +162,7 @@ export default function TopBar({ activeApps = {} }) {
             </div>
           </>
         )}
+      </div>
 
       {/* Right Side */}
       <div className="flex items-center gap-2 sm:gap-4 text-sm flex-shrink-0">
@@ -522,7 +521,6 @@ function BatteryStatus() {
   const [showBatteryTooltip, setShowBatteryTooltip] = useState(false);
 
   useEffect(() => {
-    // Simulate battery API since it's not available in all browsers
     const updateBattery = () => {
       if ("getBattery" in navigator) {
         navigator.getBattery().then((batt) => {

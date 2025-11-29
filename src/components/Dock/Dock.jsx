@@ -68,11 +68,18 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
     { name: "VideoPlayer", icon: TV, action: () => toggleApp("videoplayer"), key: "videoplayer" },
   ];
 
+  // Default apps that are always present for all users
+  const defaultApps = ["Finder", "Launchpad", "Preferences", "App Store", "Terminal", "Trash"];
+
   // Fetch installed apps from database
   useEffect(() => {
     const fetchInstalledApps = async () => {
+      // Always include default apps
+      const defaultAppObjects = allAvailableApps.filter(app => defaultApps.includes(app.name));
+      
       if (!userId) {
-        console.log('❌ No userId provided, setting loading to false');
+        console.log('❌ No userId provided, showing only default apps');
+        setInstalledApps(defaultAppObjects);
         setLoading(false);
         return;
       }
@@ -95,32 +102,32 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
           console.log('📱 Desktop apps from DB:', dbAppNames);
           console.log('📱 Type of desktopApps:', typeof dbAppNames, Array.isArray(dbAppNames));
           
-          // Log all available app names for comparison
-          console.log('🎯 Available app names:', allAvailableApps.map(a => a.name));
-          
-          // Filter apps based on database
-          const appsToShow = allAvailableApps.filter(app => {
-            const isIncluded = dbAppNames.includes(app.name);
-            console.log(`Checking "${app.name}":`, isIncluded);
-            return isIncluded;
+          // Filter additional apps from database (excluding default apps)
+          const additionalApps = allAvailableApps.filter(app => {
+            const isInDB = dbAppNames.includes(app.name);
+            const isDefault = defaultApps.includes(app.name);
+            return isInDB && !isDefault;
           });
           
-          console.log('✨ Apps to show:', appsToShow.map(a => a.name));
-          setInstalledApps(appsToShow);
-          console.log('✅ Installed apps set:', appsToShow.length, 'apps');
+          console.log('✨ Additional apps from DB:', additionalApps.map(a => a.name));
+          
+          // Combine default apps with additional apps from DB
+          const combinedApps = [...defaultAppObjects, ...additionalApps];
+          setInstalledApps(combinedApps);
+          console.log('✅ Total installed apps:', combinedApps.length, 'apps');
         } else if (response.status === 404) {
-          console.log('⚠️ No configuration found (404) - showing empty dock');
-          setInstalledApps([]);
+          console.log('⚠️ No configuration found (404) - showing only default apps');
+          setInstalledApps(defaultAppObjects);
         } else {
           console.error('❌ Error fetching config, status:', response.status);
           const errorText = await response.text();
           console.error('❌ Error response:', errorText);
-          setInstalledApps([]);
+          setInstalledApps(defaultAppObjects);
         }
       } catch (error) {
         console.error('❌ Error fetching installed apps:', error);
         console.error('❌ Error details:', error.message);
-        setInstalledApps([]);
+        setInstalledApps(defaultAppObjects);
       } finally {
         console.log('🏁 Setting loading to false');
         setLoading(false);
@@ -148,21 +155,23 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
   const getScale = (index) => {
     if (hovered === null) return 1;
     const distance = Math.abs(index - hovered);
-    if (distance === 0) return 1.5;
+    if (distance === 0) return 1.4;
+    if (distance === 1) return 1.1;
     return 1;
   };
 
   const getTranslateY = (index) => {
     if (hovered === null) return 0;
     const distance = Math.abs(index - hovered);
-    if (distance === 0) return -10;
+    if (distance === 0) return -15;
+    if (distance === 1) return -5;
     return 0;
   };
 
   const getTranslateX = (index) => {
     if (hovered === null) return 0;
-    if (index < hovered) return -15;
-    else if (index > hovered) return 10;
+    if (index < hovered) return -8;
+    else if (index > hovered) return 8;
     return 0;
   };
 
@@ -270,8 +279,12 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
       <div className="absolute bottom-5 left-1/2 -translate-x-1/2 w-[90%]">
         {/* Desktop Dock */}
         <div
-          className="hidden sm:flex backdrop-blur-md bg-white/5 px-2 py-2 rounded-2xl items-end justify-center gap-6 shadow-sm w-[100%]"
+          className="hidden sm:flex backdrop-blur-2xl bg-white/20 px-2 py-1.5 rounded-2xl items-end justify-center gap-3 shadow-2xl border border-white/30"
           onMouseLeave={() => setHovered(null)}
+          style={{
+            width: 'fit-content',
+            margin: '0 auto'
+          }}
         >
           {mainDockApps.map((app, idx) => (
             <div
@@ -289,16 +302,16 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
               }}
             >
               {hovered === idx && (
-                <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-white/40 text-black text-[10px] font-medium px-2 py-0.5 rounded whitespace-nowrap backdrop-blur-xl shadow-md border border-white/20">
+                <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800/90 text-white text-xs font-medium px-3 py-1.5 rounded-md whitespace-nowrap backdrop-blur-sm shadow-lg">
                   {app.name}
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white/40"></div>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-800/90"></div>
                 </div>
               )}
 
               <img
                 src={app.icon}
                 alt={app.name}
-                className="rounded-xl"
+                className="rounded-xl shadow-lg"
                 style={{
                   width: "60px",
                   height: "60px",
@@ -307,7 +320,7 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
               
               {isAppActive(app.key) && (
                 <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2">
-                  <div className="w-1.5 h-1.5 bg-white/90 rounded-full shadow-lg"></div>
+                  <div className="w-1 h-1 bg-white/90 rounded-full shadow-lg"></div>
                 </div>
               )}
             </div>
@@ -329,29 +342,29 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
               }}
             >
               {hovered === mainDockApps.length && (
-                <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-white/40 text-black text-[10px] font-medium px-2 py-0.5 rounded whitespace-nowrap backdrop-blur-xl shadow-md border border-white/20">
+                <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800/90 text-white text-xs font-medium px-3 py-1.5 rounded-md whitespace-nowrap backdrop-blur-sm shadow-lg">
                   More Apps
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white/40"></div>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-800/90"></div>
                 </div>
               )}
 
               <div
-                className="rounded-xl bg-gray-700/80 flex items-center justify-center"
+                className="rounded-xl bg-gray-600/60 flex items-center justify-center shadow-lg"
                 style={{
-                  width: "60px",
-                  height: "60px",
+                  width: "56px",
+                  height: "56px",
                 }}
               >
                 <div className="grid grid-cols-3 gap-1">
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                 </div>
               </div>
             </div>
