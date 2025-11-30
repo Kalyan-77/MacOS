@@ -755,27 +755,32 @@ const toggleApp = (appName) => {
       ...prev,
       [appName]: !prev[appName],
     };
-    
-    // If opening the app (not closing), give it the highest z-index
+
+    // If opening the app (not closing), atomically bump highestZIndex and assign
     if (!prev[appName]) {
-      const newZIndex = highestZIndex + 1;
-      setAppZIndices((prevIndices) => ({
-        ...prevIndices,
-        [appName]: newZIndex,
-      }));
-      setHighestZIndex(newZIndex);
+      setHighestZIndex((h) => {
+        const newZ = h + 1;
+        setAppZIndices((prevIndices) => ({
+          ...prevIndices,
+          [appName]: newZ,
+        }));
+        return newZ;
+      });
     }
-    
+
     return newState;
   });
 };
+
 const bringToFront = (appName) => {
-  const newZIndex = highestZIndex + 1;
-  setAppZIndices((prevIndices) => ({
-    ...prevIndices,
-    [appName]: newZIndex,
-  }));
-  setHighestZIndex(newZIndex);
+  setHighestZIndex((h) => {
+    const newZ = h + 1;
+    setAppZIndices((prevIndices) => ({
+      ...prevIndices,
+      [appName]: newZ,
+    }));
+    return newZ;
+  });
 };
 
   const handleItemMenuClick = (item, action) => {
@@ -1055,7 +1060,7 @@ const bringToFront = (appName) => {
     }} 
     fileToOpen={fileToOpen} 
     userId={userId}
-    zIndex={appZIndices.notepad || 1000}
+    zIndex={appZIndices.notepad || (openApps.notepad ? highestZIndex + 1 : 1000)}
     onFocus={() => bringToFront("notepad")}
   />
 )}
@@ -1063,7 +1068,7 @@ const bringToFront = (appName) => {
 {openApps.calculator && (
   <Calculator 
     onClose={() => toggleApp("calculator")}
-    zIndex={appZIndices.calculator || 1000}
+    zIndex={appZIndices.calculator || (openApps.calculator ? highestZIndex + 1 : 1000)}
     onFocus={() => bringToFront("calculator")}
   />
 )}
@@ -1071,7 +1076,7 @@ const bringToFront = (appName) => {
 {openApps.calendar && (
   <Calendar 
     onClose={() => toggleApp("calendar")}
-    zIndex={appZIndices.calendar || 1000}
+    zIndex={appZIndices.calendar || (openApps.calendar ? highestZIndex + 1 : 1000)}
     onFocus={() => bringToFront("calendar")}
   />
 )}
@@ -1079,7 +1084,7 @@ const bringToFront = (appName) => {
 {openApps.vscode && (
   <VSCode 
     onClose={() => toggleApp("vscode")}
-    zIndex={appZIndices.vscode || 1000}
+    zIndex={appZIndices.vscode || (openApps.vscode ? highestZIndex + 1 : 1000)}
     onFocus={() => bringToFront("vscode")}
   />
 )}
@@ -1087,7 +1092,7 @@ const bringToFront = (appName) => {
 {openApps.maps && (
   <Maps 
     onClose={() => toggleApp("maps")} 
-    zIndex={appZIndices.maps || 1000}
+    zIndex={appZIndices.maps || (openApps.maps ? highestZIndex + 1 : 1000)}
     onFocus={() => bringToFront("maps")}
   />
 )}
@@ -1095,7 +1100,7 @@ const bringToFront = (appName) => {
 {openApps.edge && (
   <Edge
     onClose={() => toggleApp("edge")}
-    zIndex={appZIndices.edge || 1000}
+    zIndex={appZIndices.edge || (openApps.edge ? highestZIndex + 1 : 1000)}
     onFocus={() => bringToFront("edge")}
   />
 )}
@@ -1103,7 +1108,7 @@ const bringToFront = (appName) => {
 {openApps.vlcplayer && (
   <VLCPlayer 
     onClose={() => toggleApp("vlcplayer")}
-    zIndex={appZIndices.vlcplayer || 1000}
+    zIndex={appZIndices.vlcplayer || (openApps.vlcplayer ? highestZIndex + 1 : 1000)}
     onFocus={() => bringToFront("vlcplayer")}
   />
 )}
@@ -1111,7 +1116,7 @@ const bringToFront = (appName) => {
 {openApps.terminal && (
   <TerminalTab 
     onClose={() => toggleApp("terminal")}
-    zIndex={appZIndices.terminal || 1000}
+    zIndex={appZIndices.terminal || (openApps.terminal ? highestZIndex + 1 : 1000)}
     onFocus={() => bringToFront("terminal")}
   />
 )}
@@ -1119,7 +1124,7 @@ const bringToFront = (appName) => {
 {openApps.filemanager && (
   <FileManager 
     onClose={() => toggleApp("filemanager")} 
-    zIndex={appZIndices.filemanager || 1000}
+    zIndex={appZIndices.filemanager || (openApps.filemanager ? highestZIndex + 1 : 1000)}
     onFocus={() => bringToFront("filemanager")}
     toggleApp={toggleApp}
     setFileToOpen={setFileToOpen}
@@ -1135,7 +1140,7 @@ const bringToFront = (appName) => {
     }} 
     fileToOpen={fileToOpen} 
     userId={userId}
-    zIndex={appZIndices.photos || 1000}
+    zIndex={appZIndices.photos || (openApps.photos ? highestZIndex + 1 : 1000)}
     onFocus={() => bringToFront("photos")}
   />
 )}
@@ -1148,7 +1153,7 @@ const bringToFront = (appName) => {
     }} 
     fileToOpen={fileToOpen} 
     userId={userId}
-    zIndex={appZIndices.videoplayer || 1000}
+    zIndex={appZIndices.videoplayer || (openApps.videoplayer ? highestZIndex + 1 : 1000)}
     onFocus={() => bringToFront("videoplayer")}
   />
 )}
@@ -1156,7 +1161,7 @@ const bringToFront = (appName) => {
 {openApps.trash && (
   <Trash 
     onClose={() => toggleApp("trash")}
-    zIndex={appZIndices.trash || 1000}
+    zIndex={appZIndices.trash || (openApps.trash ? highestZIndex + 1 : 1000)}
     onFocus={() => bringToFront("trash")}
   />
 )}
@@ -1164,7 +1169,7 @@ const bringToFront = (appName) => {
 {openApps.appstore && (
   <AppStore 
     onClose={() => toggleApp("appstore")}
-    zIndex={appZIndices.appstore || 1000}
+    zIndex={appZIndices.appstore || (openApps.appstore ? highestZIndex + 1 : 1000)}
     onFocus={() => bringToFront("appstore")}
   />
 )}
@@ -1177,7 +1182,7 @@ const bringToFront = (appName) => {
     }} 
     fileToOpen={fileToOpen} 
     userId={userId}
-    zIndex={appZIndices.musicplayer || 1000}
+    zIndex={appZIndices.musicplayer || (openApps.musicplayer ? highestZIndex + 1 : 1000)}
     onFocus={() => bringToFront("musicplayer")}
   />
 )}

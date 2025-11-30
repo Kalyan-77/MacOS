@@ -65,7 +65,7 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
     { name: "Teams", icon: teams },
     { name: "Chrome", icon: edge },
     { name: "Chess", icon: chess },
-    { name: "VideoPlayer", icon: TV, action: () => toggleApp("videoplayer"), key: "videoplayer" },
+    { name: "Video Player", icon: TV, action: () => toggleApp("videoplayer"), key: "videoplayer" },
   ];
 
   // Default apps that are always present for all users

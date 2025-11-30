@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Play, Pause, Volume2, VolumeX, Maximize2, SkipBack, SkipForward } from 'lucide-react';
+import { X, Play, Pause, Volume2, VolumeX, Maximize2, SkipBack, SkipForward, Minus, Square } from 'lucide-react';
 import { BASE_URL } from '../../../config';
 
-
-export default function VideoPlayer({ onClose, fileToOpen = null, userId, zIndex = 1000, onFocus   }) {
+export default function VideoPlayer({ onClose, fileToOpen = null, userId, zIndex = 1000, onFocus }) {
   const [videoUrl, setVideoUrl] = useState(null);
   const [fileName, setFileName] = useState('Untitled Video');
   const [isLoading, setIsLoading] = useState(false);
@@ -13,16 +12,19 @@ export default function VideoPlayer({ onClose, fileToOpen = null, userId, zIndex
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showControls, setShowControls] = useState(true);
 
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [prevPosition, setPrevPosition] = useState({ x: 300, y: 150 });
   const [isActive, setIsActive] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   
   const windowRef = useRef(null);
   const videoRef = useRef(null);
   const progressBarRef = useRef(null);
+  const controlsTimeoutRef = useRef(null);
 
   const dragState = useRef({
     holdingWindow: false,
@@ -33,6 +35,25 @@ export default function VideoPlayer({ onClose, fileToOpen = null, userId, zIndex
     currentWindowX: 300,
     currentWindowY: 50
   });
+
+  // Check if device is mobile/tablet
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobileDevice = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsMobile(isMobileDevice);
+      
+      // Auto-maximize on mobile
+      if (isMobileDevice && !isMaximized) {
+        setIsMaximized(true);
+        dragState.current.currentWindowX = 0;
+        dragState.current.currentWindowY = 0;
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     if (fileToOpen && fileToOpen._id) {
@@ -67,10 +88,11 @@ export default function VideoPlayer({ onClose, fileToOpen = null, userId, zIndex
   };
 
   useEffect(() => {
+    if (isMobile) return;
+
     const windowElement = windowRef.current;
     if (!windowElement) return;
 
-    let highestZ = 1000;
     let animationFrame = null;
 
     const handleMouseMove = (e) => {
@@ -108,16 +130,15 @@ export default function VideoPlayer({ onClose, fileToOpen = null, userId, zIndex
           e.preventDefault();
           e.stopPropagation();
 
-            if (onFocus) {
-              onFocus();
-            }
+          if (onFocus) {
+            onFocus();
+          }
           
           dragState.current.holdingWindow = true;
           setIsActive(true);
           setIsDragging(true);
 
-          windowElement.style.zIndex = highestZ;
-          highestZ += 1;
+          // z-index is managed by the parent MacOS component via the `zIndex` prop
 
           dragState.current.mouseTouchX = e.clientX;
           dragState.current.mouseTouchY = e.clientY;
@@ -149,8 +170,15 @@ export default function VideoPlayer({ onClose, fileToOpen = null, userId, zIndex
       }
     };
 
+    const handleContextMenu = (e) => {
+      if (dragState.current.holdingWindow) {
+        e.preventDefault();
+      }
+    };
+
     document.addEventListener('mousemove', handleMouseMove, { passive: false });
     document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('contextmenu', handleContextMenu);
     windowElement.addEventListener('mousedown', handleMouseDown);
 
     windowElement.style.transform = `translate3d(${dragState.current.currentWindowX}px, ${dragState.current.currentWindowY}px, 0)`;
@@ -159,6 +187,7 @@ export default function VideoPlayer({ onClose, fileToOpen = null, userId, zIndex
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('contextmenu', handleContextMenu);
       windowElement.removeEventListener('mousedown', handleMouseDown);
       
       document.body.style.userSelect = '';
@@ -169,7 +198,32 @@ export default function VideoPlayer({ onClose, fileToOpen = null, userId, zIndex
         cancelAnimationFrame(animationFrame);
       }
     };
-  }, [isMaximized]);
+  }, [isMaximized, isMobile]);
+
+  // Auto-hide controls on mobile after inactivity
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const resetControlsTimeout = () => {
+      setShowControls(true);
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+      if (isPlaying) {
+        controlsTimeoutRef.current = setTimeout(() => {
+          setShowControls(false);
+        }, 3000);
+      }
+    };
+
+    resetControlsTimeout();
+
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, [isPlaying, isMobile]);
 
   const handleClose = () => {
     if (videoRef.current) {
@@ -191,7 +245,9 @@ export default function VideoPlayer({ onClose, fileToOpen = null, userId, zIndex
       setIsMaximized(false);
       dragState.current.currentWindowX = prevPosition.x;
       dragState.current.currentWindowY = prevPosition.y;
-      windowRef.current.style.transform = `translate3d(${dragState.current.currentWindowX}px, ${dragState.current.currentWindowY}px, 0)`;
+      if (windowRef.current) {
+        windowRef.current.style.transform = `translate3d(${dragState.current.currentWindowX}px, ${dragState.current.currentWindowY}px, 0)`;
+      }
     } else {
       setPrevPosition({
         x: dragState.current.currentWindowX,
@@ -199,8 +255,10 @@ export default function VideoPlayer({ onClose, fileToOpen = null, userId, zIndex
       });
       setIsMaximized(true);
       dragState.current.currentWindowX = 0;
-      dragState.current.currentWindowY = 25;
-      windowRef.current.style.transform = `translate3d(0px, 25px, 0)`;
+      dragState.current.currentWindowY = isMobile ? 0 : 25;
+      if (windowRef.current) {
+        windowRef.current.style.transform = `translate3d(0px, ${isMobile ? 0 : 25}px, 0)`;
+      }
     }
   };
 
@@ -294,10 +352,46 @@ export default function VideoPlayer({ onClose, fileToOpen = null, userId, zIndex
     if(onFocus) onFocus();
   };
 
+  const handleVideoClick = () => {
+    if (isMobile) {
+      setShowControls(!showControls);
+    }
+  };
+
+  // Get responsive dimensions
+  const getWindowDimensions = () => {
+    if (isMaximized) {
+      return {
+        width: '100vw',
+        height: isMobile ? '100vh' : 'calc(100vh - 25px)'
+      };
+    }
+    
+    if (isMobile) {
+      return {
+        width: '100vw',
+        height: '100vh'
+      };
+    }
+    
+    // Desktop windowed mode
+    const maxWidth = Math.min(1000, window.innerWidth - 100);
+    const maxHeight = Math.min(600, window.innerHeight - 100);
+    
+    return {
+      width: `${maxWidth}px`,
+      height: `${maxHeight}px`
+    };
+  };
+
+  const dimensions = getWindowDimensions();
+
   return (
     <div
       ref={windowRef}
-      className={`fixed bg-white rounded-xl shadow-2xl overflow-hidden transition-all duration-200 ${
+      className={`fixed bg-white overflow-hidden transition-all duration-200 ${
+        isMobile ? 'rounded-none' : 'rounded-xl shadow-2xl'
+      } ${
         isActive ? 'ring-2 ring-blue-500/20' : ''
       } ${
         isMinimized ? 'scale-95 opacity-50' : 'scale-100 opacity-100'
@@ -305,8 +399,8 @@ export default function VideoPlayer({ onClose, fileToOpen = null, userId, zIndex
       style={{
         left: 0,
         top: 0,
-        width: isMaximized ? '100vw' : '1000px',
-        height: isMaximized ? 'calc(100vh - 25px)' : '600px',
+        width: dimensions.width,
+        height: dimensions.height,
         zIndex: zIndex,
         display: isMinimized ? 'none' : 'block',
         willChange: isDragging ? 'transform' : 'auto',
@@ -318,38 +412,46 @@ export default function VideoPlayer({ onClose, fileToOpen = null, userId, zIndex
       }}
     >
       <div
-        className={`title-bar h-12 bg-gray-100 border-b border-gray-200 flex items-center justify-between px-4 select-none transition-colors duration-200 ${
+        className={`title-bar ${isMobile ? 'h-14' : 'h-12'} bg-gray-100 border-b border-gray-200 flex items-center justify-between ${isMobile ? 'px-4' : 'px-4'} select-none transition-colors duration-200 ${
           isActive ? 'bg-gray-100' : 'bg-gray-50'
         }`}
-        style={{ cursor: 'default' }}
+        style={{ 
+          cursor: 'default',
+          WebkitAppRegion: isMobile ? 'no-drag' : 'drag'
+        }}
       >
-        <div className="traffic-lights flex items-center gap-2">
+        <div className="traffic-lights flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
           <button
-            className="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600 transition-colors duration-150 group flex items-center justify-center cursor-pointer"
+            className={`${isMobile ? 'w-4 h-4' : 'w-3 h-3'} bg-red-500 rounded-full hover:bg-red-600 transition-colors duration-150 group flex items-center justify-center cursor-pointer`}
             onClick={handleClose}
             title="Close"
           >
-            <X size={8} className="text-red-800 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <X size={isMobile ? 10 : 8} className="text-red-800 opacity-0 group-hover:opacity-100 transition-opacity" />
           </button>
-          <button
-            className="w-3 h-3 bg-yellow-500 rounded-full hover:bg-yellow-600 transition-colors duration-150 group flex items-center justify-center cursor-pointer"
-            onClick={handleMinimize}
-            title="Minimize"
-          >
-            <div className="w-2 h-0.5 bg-yellow-800 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          </button>
-          <button
-            className="w-3 h-3 bg-green-500 rounded-full hover:bg-green-600 transition-colors duration-150 group flex items-center justify-center cursor-pointer"
-            onClick={handleMaximize}
-            title={isMaximized ? "Restore" : "Maximize"}
-          >
-            <div className="w-1.5 h-1.5 border border-green-800 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          </button>
+          {!isMobile && (
+            <>
+              <button
+                className="w-3 h-3 bg-yellow-500 rounded-full hover:bg-yellow-600 transition-colors duration-150 group flex items-center justify-center cursor-pointer"
+                onClick={handleMinimize}
+                title="Minimize"
+              >
+                <Minus size={8} className="text-yellow-800 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+              <button
+                className="w-3 h-3 bg-green-500 rounded-full hover:bg-green-600 transition-colors duration-150 group flex items-center justify-center cursor-pointer"
+                onClick={handleMaximize}
+                title={isMaximized ? "Restore" : "Maximize"}
+              >
+                <Square size={6} className="text-green-800 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+            </>
+          )}
         </div>
 
         <div className="absolute left-1/2 transform -translate-x-1/2 pointer-events-none">
-          <h1 className="text-sm font-medium text-gray-700">
-            {fileName}
+          <h1 className={`${isMobile ? 'text-base' : 'text-sm'} font-medium text-gray-700`}>
+            {isMobile && fileName.length > 20 ? fileName.substring(0, 20) + '...' : fileName}
+            {!isMobile && fileName}
             {isLoading && ' (Loading...)'}
           </h1>
         </div>
@@ -357,13 +459,13 @@ export default function VideoPlayer({ onClose, fileToOpen = null, userId, zIndex
 
       <div 
         className="bg-black flex flex-col items-center justify-center relative" 
-        style={{ height: 'calc(100% - 3rem)' }}
+        style={{ height: isMobile ? 'calc(100% - 3.5rem)' : 'calc(100% - 3rem)' }}
       >
         {isLoading ? (
-          <div className="text-white text-lg">Loading video...</div>
+          <div className={`text-white ${isMobile ? 'text-xl' : 'text-lg'}`}>Loading video...</div>
         ) : videoUrl ? (
-          <div className="w-full h-full flex flex-col">
-            <div className="flex-1 flex items-center justify-center">
+          <div className="w-full h-full flex flex-col relative">
+            <div className="flex-1 flex items-center justify-center" onClick={handleVideoClick}>
               <video
                 ref={videoRef}
                 src={videoUrl}
@@ -371,89 +473,119 @@ export default function VideoPlayer({ onClose, fileToOpen = null, userId, zIndex
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
                 onEnded={() => setIsPlaying(false)}
+                playsInline
               />
             </div>
             
-            <div className="bg-gray-900 bg-opacity-90 p-4 space-y-3">
+            {/* Video Controls */}
+            <div 
+              className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent ${isMobile ? 'p-3' : 'p-4'} space-y-3 transition-opacity duration-300 ${
+                isMobile && !showControls ? 'opacity-0 pointer-events-none' : 'opacity-100'
+              }`}
+            >
+              {/* Progress Bar */}
               <div 
                 ref={progressBarRef}
-                className="w-full h-2 bg-gray-700 rounded-full cursor-pointer relative group"
+                className={`w-full ${isMobile ? 'h-1.5' : 'h-2'} bg-gray-700 rounded-full cursor-pointer relative group`}
                 onClick={handleProgressClick}
               >
                 <div 
                   className="h-full bg-blue-500 rounded-full transition-all"
                   style={{ width: `${(currentTime / duration) * 100}%` }}
                 ></div>
-                <div 
-                  className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ left: `${(currentTime / duration) * 100}%`, transform: 'translate(-50%, -50%)' }}
-                ></div>
+                {!isMobile && (
+                  <div 
+                    className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ left: `${(currentTime / duration) * 100}%`, transform: 'translate(-50%, -50%)' }}
+                  ></div>
+                )}
               </div>
 
+              {/* Control Buttons */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+                <div className={`flex items-center ${isMobile ? 'gap-3' : 'gap-4'}`}>
                   <button
                     onClick={skipBackward}
-                    className="text-white hover:text-blue-400 transition-colors"
+                    className={`text-white hover:text-blue-400 transition-colors ${isMobile ? 'p-2' : ''}`}
                     title="Skip back 10s"
                   >
-                    <SkipBack size={20} />
+                    <SkipBack size={isMobile ? 22 : 20} />
                   </button>
                   
                   <button
                     onClick={togglePlayPause}
-                    className="text-white hover:text-blue-400 transition-colors"
+                    className={`text-white hover:text-blue-400 transition-colors ${isMobile ? 'p-2' : ''}`}
                     title={isPlaying ? "Pause" : "Play"}
                   >
-                    {isPlaying ? <Pause size={24} /> : <Play size={24} />}
+                    {isPlaying ? <Pause size={isMobile ? 28 : 24} /> : <Play size={isMobile ? 28 : 24} />}
                   </button>
                   
                   <button
                     onClick={skipForward}
-                    className="text-white hover:text-blue-400 transition-colors"
+                    className={`text-white hover:text-blue-400 transition-colors ${isMobile ? 'p-2' : ''}`}
                     title="Skip forward 10s"
                   >
-                    <SkipForward size={20} />
+                    <SkipForward size={isMobile ? 22 : 20} />
                   </button>
 
-                  <span className="text-white text-sm">
-                    {formatTime(currentTime)} / {formatTime(duration)}
-                  </span>
+                  {!isMobile && (
+                    <span className="text-white text-sm">
+                      {formatTime(currentTime)} / {formatTime(duration)}
+                    </span>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
+                <div className={`flex items-center ${isMobile ? 'gap-3' : 'gap-4'}`}>
+                  {isMobile && (
+                    <span className="text-white text-xs">
+                      {formatTime(currentTime)}
+                    </span>
+                  )}
+                  
+                  {!isMobile && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={toggleMute}
+                        className="text-white hover:text-blue-400 transition-colors"
+                        title={isMuted ? "Unmute" : "Mute"}
+                      >
+                        {isMuted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                      </button>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={volume}
+                        onChange={handleVolumeChange}
+                        className="w-20 cursor-pointer"
+                      />
+                    </div>
+                  )}
+
+                  {isMobile ? (
                     <button
                       onClick={toggleMute}
-                      className="text-white hover:text-blue-400 transition-colors"
+                      className="text-white hover:text-blue-400 transition-colors p-2"
                       title={isMuted ? "Unmute" : "Mute"}
                     >
-                      {isMuted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                      {isMuted || volume === 0 ? <VolumeX size={22} /> : <Volume2 size={22} />}
                     </button>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={volume}
-                      onChange={handleVolumeChange}
-                      className="w-20 cursor-pointer"
-                    />
-                  </div>
+                  ) : null}
 
                   <button
                     onClick={toggleFullscreen}
-                    className="text-white hover:text-blue-400 transition-colors"
+                    className={`text-white hover:text-blue-400 transition-colors ${isMobile ? 'p-2' : ''}`}
                     title="Fullscreen"
                   >
-                    <Maximize2 size={20} />
+                    <Maximize2 size={isMobile ? 22 : 20} />
                   </button>
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="text-white text-lg">No video to display</div>
+          <div className={`text-white ${isMobile ? 'text-xl' : 'text-lg'}`}>No video to display</div>
         )}
       </div>
     </div>

@@ -117,7 +117,6 @@ export default function calendar({ onClose, zIndex = 1000, onFocus  }) {
     const windowElement = windowRef.current;
     if (!windowElement) return;
 
-    let highestZ = 1000;
     let animationFrame = null;
 
     const handleMouseMove = (e) => {
@@ -163,8 +162,7 @@ export default function calendar({ onClose, zIndex = 1000, onFocus  }) {
           setIsActive(true);
           setIsDragging(true);
 
-          windowElement.style.zIndex = highestZ;
-          highestZ += 1;
+          // z-index handled by parent MacOS via `zIndex` prop
 
           dragState.current.mouseTouchX = e.clientX;
           dragState.current.mouseTouchY = e.clientY;

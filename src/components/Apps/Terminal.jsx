@@ -776,7 +776,6 @@ DESCRIPTION
     const windowElement = windowRef.current;
     if (!windowElement) return;
 
-    let highestZ = 1000;
     let animationFrame = null;
 
     const handleMouseMove = (e) => {
@@ -822,8 +821,7 @@ DESCRIPTION
           setIsActive(true);
           setIsDragging(true);
 
-          windowElement.style.zIndex = highestZ;
-          highestZ += 1;
+          // z-index is managed by the parent MacOS component via the `zIndex` prop
 
           dragState.current.mouseTouchX = e.clientX;
           dragState.current.mouseTouchY = e.clientY;

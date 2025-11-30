@@ -760,7 +760,6 @@ export default function FileManager({ onClose, toggleApp, setFileToOpen, userId:
     const windowElement = windowRef.current;
     if (!windowElement) return;
 
-    let highestZ = 1000;
     let animationFrame = null;
 
     const handleMouseMove = (e) => {
@@ -804,7 +803,7 @@ export default function FileManager({ onClose, toggleApp, setFileToOpen, userId:
           setIsActive(true);
           setIsDragging(true);
 
-          windowElement.style.zIndex = highestZ++;
+          // z-index handled by parent MacOS via `zIndex` prop
           dragState.current.mouseTouchX = e.clientX;
           dragState.current.mouseTouchY = e.clientY;
           dragState.current.startWindowX = dragState.current.currentWindowX;
