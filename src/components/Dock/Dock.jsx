@@ -23,6 +23,8 @@ import TV from "../../assets/AppIcons/TV.jpg";
 import figma from "../../assets/AppIcons/figma.webp";
 import zoom from "../../assets/AppIcons/zoom.webp";
 import teams from "../../assets/AppIcons/teams.jpg";
+import whatsapp from "../../assets/AppIcons/Whatsapp.jpg";
+import instagram from "../../assets/AppIcons/Instagram.jpg";
 import { BASE_URL } from "../../../config";
 
 export default function Dock({ toggleApp, activeApps = {}, userId }) {
@@ -66,6 +68,8 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
     { name: "Chrome", icon: edge },
     { name: "Chess", icon: chess },
     { name: "Video Player", icon: TV, action: () => toggleApp("videoplayer"), key: "videoplayer" },
+    { name: "WhatsApp", icon: whatsapp, action: () => toggleApp("WhatsApp"), key: "WhatsApp" },
+    { name: "Instagram", icon: instagram, action: () => toggleApp("Instagram"), key: "Instagram" },
   ];
 
   // Default apps that are always present for all users
@@ -313,8 +317,8 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
                 alt={app.name}
                 className="rounded-xl shadow-lg"
                 style={{
-                  width: "60px",
-                  height: "60px",
+                  width: "56px",
+                  height: "56px",
                 }}
               />
               

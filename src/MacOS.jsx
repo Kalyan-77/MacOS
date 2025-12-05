@@ -20,6 +20,7 @@ import VideoPlayer from "./components/Apps/VideoPlayer";
 import Trash from "./components/Apps/Trash";
 import AppStore from "./components/Apps/AppStore";
 import MusicPlayer from "./components/Apps/Music";
+// import Whatsapp from "./components/Apps"
 
 // Desktop Item Component (Folder or File)
 const DesktopItem = ({ item, onDoubleClick, onRightClick, isSelected, onClick, onMenuClick, position, onPositionChange }) => {
@@ -1171,6 +1172,7 @@ const bringToFront = (appName) => {
     onClose={() => toggleApp("appstore")}
     zIndex={appZIndices.appstore || (openApps.appstore ? highestZIndex + 1 : 1000)}
     onFocus={() => bringToFront("appstore")}
+    userId={userId}
   />
 )}
 
