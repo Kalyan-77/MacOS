@@ -3,20 +3,20 @@ import { Wifi, Search } from "lucide-react";
 import white from "../../assets/BasicIcons/white.png";
 
 // Import app icons
-import AppStore from "../../assets/AppIcons/appstore.png";
-import finder from "../../assets/AppIcons/finder.png";
-import notes from "../../assets/AppIcons/notes.png";
-import calculator from "../../assets/AppIcons/calculator.png";
-import calender from "../../assets/AppIcons/calendar.png";
-import terminal from "../../assets/AppIcons/terminal.png";
-import vscode from "../../assets/AppIcons/vscode.svg";
-import photos from "../../assets/AppIcons/photos.png";
-import maps from "../../assets/AppIcons/maps.png";
-import edge from "../../assets/AppIcons/edge.png";
-import vlc from "../../assets/AppIcons/vlc.png";
-import TV from "../../assets/AppIcons/TV.jpg";
-import bin from "../../assets/AppIcons/bin.png";
-import music from "../../assets/AppIcons/music.png";
+import AppStore from "/AppIcons/appstore.png";
+import finder from "/AppIcons/finder.png";
+import notes from "/AppIcons/notes.png";
+import calculator from "/AppIcons/calculator.png";
+import calender from "/AppIcons/calendar.png";
+import terminal from "/AppIcons/terminal.png";
+import vscode from "/AppIcons/vscode.svg";
+import photos from "/AppIcons/photos.png";
+import maps from "/AppIcons/maps.png";
+import edge from "/AppIcons/edge.png";
+import vlc from "/AppIcons/vlc.png";
+import TV from "/AppIcons/TV.jpg";
+import bin from "/AppIcons/bin.png";
+import music from "/AppIcons/music.png";
 
 // Map of app keys to their icons and display names
 const appIconMap = {

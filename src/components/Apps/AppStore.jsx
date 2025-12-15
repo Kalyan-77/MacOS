@@ -204,36 +204,66 @@ export default function AppStore({ onClose, onFocus, zIndex = 1000, userId }) {
 
   // Helper function to get icon (either emoji or image URL)
   const getAppIcon = (icon) => {
-    if (icon.startsWith('/AppIcons/') || icon.startsWith('/')) {
-      const imagePath = `/src/assets/AppIcons${icon}`;
+    if (!icon) {
+      return <span className="text-4xl">📱</span>;
+    }
+
+    // If it's a path to an image file
+    if (icon.includes('.png') || icon.includes('.jpg') || icon.includes('.jpeg') || icon.includes('.svg') || icon.includes('.webp')) {
+      let cleanPath = icon.trim();
+      
+      if (cleanPath.startsWith('/')) {
+        cleanPath = cleanPath.substring(1);
+      }
+      
+      let finalPath;
+      if (cleanPath.startsWith('AppIcons/')) {
+        finalPath = `/${cleanPath}`;
+      } else {
+        cleanPath = cleanPath.replace(/^AppIcons\//, '');
+        finalPath = `/AppIcons/${cleanPath}`;
+      }
+      
       return (
         <img 
-          src={imagePath}
+          src={finalPath}
           alt="App Icon" 
           className="w-full h-full object-contain p-2"
           onError={(e) => {
+            console.error('Failed to load image from:', finalPath);
+            e.target.onerror = null;
             e.target.style.display = 'none';
-            e.target.parentElement.innerHTML = '📱';
+            const parent = e.target.parentElement;
+            if (parent) {
+              parent.innerHTML = '<span class="text-4xl">📱</span>';
+            }
           }}
         />
       );
     }
     
-    if (icon.startsWith('http')) {
+    // If it's a full URL
+    if (icon.startsWith('http://') || icon.startsWith('https://')) {
       return (
         <img 
           src={icon} 
           alt="App Icon" 
           className="w-full h-full object-contain p-2"
           onError={(e) => {
+            console.error('Failed to load image from URL:', icon);
+            e.target.onerror = null;
             e.target.style.display = 'none';
-            e.target.parentElement.innerHTML = '📱';
+            const parent = e.target.parentElement;
+            if (parent) {
+              parent.innerHTML = '<span class="text-4xl">📱</span>';
+            }
           }}
         />
       );
     }
     
-    return icon;
+    // Otherwise, treat it as an emoji or text
+    return <span className="text-4xl">{icon}</span>;
   };
 
   // Filter apps based on category and search
@@ -247,14 +277,13 @@ export default function AppStore({ onClose, onFocus, zIndex = 1000, userId }) {
   // Featured apps (top rated)
   const featuredApps = apps.filter(app => app.rating >= 4.7).slice(0, 3);
 
-  // Installation handlers - LOCAL ONLY (No API calls)
+  // Installation handlers
   const handleInstall = (appId) => {
     if (!userId) {
       showNotification('Please log in to install apps', 'error');
       return;
     }
 
-    // Update UI immediately
     setApps(prevApps =>
       prevApps.map(app =>
         app.id === appId
@@ -263,7 +292,6 @@ export default function AppStore({ onClose, onFocus, zIndex = 1000, userId }) {
       )
     );
 
-    // Simulate installation progress
     let progress = 0;
     const interval = setInterval(() => {
       progress += Math.random() * 15 + 5;
@@ -761,7 +789,6 @@ export default function AppStore({ onClose, onFocus, zIndex = 1000, userId }) {
                               <span className="text-xs text-gray-500">{app.downloads}</span>
                             </div>
                             
-                            {/* Install Button */}
                             <div className="mt-3" onClick={(e) => e.stopPropagation()}>
                               {app.installing ? (
                                 <div>
@@ -852,7 +879,6 @@ export default function AppStore({ onClose, onFocus, zIndex = 1000, userId }) {
                             <span className="text-xs font-semibold text-blue-600">{app.price}</span>
                           </div>
                           
-                          {/* Install Button */}
                           <div className="mt-3" onClick={(e) => e.stopPropagation()}>
                             {app.installing ? (
                               <div>
@@ -910,7 +936,6 @@ export default function AppStore({ onClose, onFocus, zIndex = 1000, userId }) {
                               <span>{app.size}</span>
                             </div>
                             
-                            {/* Progress Bar in List View */}
                             {app.installing && (
                               <div className="mt-2">
                                 <div className="flex items-center justify-between mb-1">
@@ -1005,7 +1030,6 @@ export default function AppStore({ onClose, onFocus, zIndex = 1000, userId }) {
                   </div>
                 </div>
                 
-                {/* Install Button in Modal */}
                 <div onClick={(e) => e.stopPropagation()}>
                   {selectedApp.installing ? (
                     <div className="min-w-[140px]">
