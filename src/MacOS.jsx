@@ -20,7 +20,7 @@ import VideoPlayer from "./components/Apps/VideoPlayer";
 import Trash from "./components/Apps/Trash";
 import AppStore from "./components/Apps/AppStore";
 import MusicPlayer from "./components/Apps/Music";
-// import Whatsapp from "./components/Apps"
+import Whatspp from "./components/Apps/Whatspp";
 
 // Desktop Item Component (Folder or File)
 const DesktopItem = ({ item, onDoubleClick, onRightClick, isSelected, onClick, onMenuClick, position, onPositionChange }) => {
@@ -468,6 +468,7 @@ export default function MacOS() {
     trash: false,
     appstore: false,
     musicplayer: false,
+    whatsapp: false,
   });
 
   const [appZIndices, setAppZIndices] = useState({});
@@ -1186,6 +1187,13 @@ const bringToFront = (appName) => {
     userId={userId}
     zIndex={appZIndices.musicplayer || (openApps.musicplayer ? highestZIndex + 1 : 1000)}
     onFocus={() => bringToFront("musicplayer")}
+  />
+)}
+{openApps.whatsapp && (
+  <Whatspp 
+    onClose={() => toggleApp("whatsapp")}
+    zIndex={appZIndices.whatsapp || (openApps.whatsapp ? highestZIndex + 1 : 1000)}
+    onFocus={() => bringToFront("whatsapp")}
   />
 )}
         
