@@ -6,7 +6,8 @@ import {
   Archive, VolumeX, Ban, ThumbsUp, Reply, Forward, Star, Copy, Info
 } from 'lucide-react';
 
-const BASE_URL = 'http://localhost:5000';
+import { BASE_URL } from '../../../config';
+
 
 // Dropdown Menu Component
 const DropdownMenu = ({ options, onClose, x, y }) => {
