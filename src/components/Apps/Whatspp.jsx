@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { 
   X, Phone, Video, Search, Paperclip, Smile, Send,
   MoreVertical, Menu, ChevronLeft, Check, CheckCheck, Mic,
@@ -6,15 +6,91 @@ import {
   Archive, VolumeX, Ban, ThumbsUp, Reply, Forward, Star, Copy, Info
 } from 'lucide-react';
 
-import { BASE_URL } from '../../../config';
-
+const BASE_URL = 'http://localhost:5000';
 
 // Dropdown Menu Component
-const DropdownMenu = ({ options, onClose, x, y }) => {
+const DropdownMenu = ({ options, onClose, x, y, anchorRect, anchorSide = 'right', containerRef }) => {
+  const menuRef = useRef(null);
+  const [pos, setPos] = useState({ left: x || 0, top: y || 0, width: 'auto' });
+
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    if (!menu) return;
+
+    const compute = () => {
+      const mw = menu.offsetWidth || 200;
+      const mh = menu.offsetHeight || 200;
+      const padding = 8;
+
+      let left = typeof x === 'number' ? x : null;
+      let top = typeof y === 'number' ? y : null;
+
+      const containerRect = containerRef && containerRef.current ? containerRef.current.getBoundingClientRect() : null;
+
+      if (anchorRect) {
+        const a = anchorRect;
+        const aLeft = containerRect ? a.left - containerRect.left : a.left;
+        const aTop = containerRect ? a.top - containerRect.top : a.top;
+        const aRight = containerRect ? a.right - containerRect.left : a.right;
+        const aBottom = containerRect ? a.bottom - containerRect.top : a.bottom;
+
+        top = aTop;
+        if (anchorSide === 'left') {
+          left = aLeft - mw - 8;
+        } else if (anchorSide === 'right') {
+          left = aRight + 8;
+        } else if (anchorSide === 'bottom') {
+          top = aBottom + 8;
+          left = aLeft;
+        } else {
+          left = aRight + 8;
+        }
+      }
+
+      if (left === null) left = typeof x === 'number' ? (containerRect ? x - containerRect.left : x) : padding;
+      if (top === null) top = typeof y === 'number' ? (containerRect ? y - containerRect.top : y) : padding;
+
+      const viewportWidth = containerRect ? containerRect.width : window.innerWidth;
+      const viewportHeight = containerRect ? containerRect.height : window.innerHeight;
+
+      const isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        const width = Math.max((containerRect ? containerRect.width : window.innerWidth) - padding * 2, 200);
+        const preferBottom = top > (containerRect ? containerRect.height : window.innerHeight) / 2;
+        if (preferBottom) {
+          top = Math.max(padding, (containerRect ? containerRect.height : window.innerHeight) - mh - 80);
+        } else {
+          top = Math.min(Math.max(padding, top), (containerRect ? containerRect.height : window.innerHeight) - mh - padding);
+        }
+        left = padding;
+        setPos({ left, top, width });
+        return;
+      }
+
+      if (left + mw > viewportWidth - padding) left = viewportWidth - mw - padding;
+      if (left < padding) left = padding;
+      if (top + mh > viewportHeight - padding) top = viewportHeight - mh - padding;
+      if (top < padding) top = padding;
+
+      setPos({ left, top, width: 'auto' });
+    };
+
+    const raf = requestAnimationFrame(compute);
+    window.addEventListener('resize', compute);
+    window.addEventListener('scroll', compute, true);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', compute);
+      window.removeEventListener('scroll', compute, true);
+    };
+  }, [x, y, anchorRect, anchorSide, containerRef, options]);
+
   return (
     <div
-      className="fixed bg-white rounded-lg shadow-2xl border border-gray-200 py-1 z-50 min-w-48"
-      style={{ top: y, left: x }}
+      ref={menuRef}
+      className="absolute bg-white rounded-lg shadow-2xl border border-gray-200 py-1 z-50 min-w-48"
+      style={{ top: pos.top, left: pos.left, width: pos.width }}
       onClick={(e) => e.stopPropagation()}
     >
       {options.map((option, idx) => (
@@ -123,7 +199,6 @@ const ProfilePanel = ({ profile, onClose, onSave, BASE_URL }) => {
 
   return (
     <div className="absolute inset-0 bg-white z-50 flex">
-      {/* Left Panel */}
       <div className="w-96 bg-[#008069] text-white flex flex-col">
         <div className="p-6 flex items-center gap-4">
           <button onClick={onClose} className="hover:bg-white/10 rounded-full p-2">
@@ -159,7 +234,6 @@ const ProfilePanel = ({ profile, onClose, onSave, BASE_URL }) => {
         </div>
       </div>
 
-      {/* Right Panel */}
       <div className="flex-1 p-8 overflow-y-auto">
         <div className="max-w-2xl">
           <div className="mb-8">
@@ -225,6 +299,10 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
   const [showClearChatModal, setShowClearChatModal] = useState(false);
   const [dropdown, setDropdown] = useState(null);
 
+  // Real-time states
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [typingUser, setTypingUser] = useState(null);
+
   // Window state
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -238,6 +316,7 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
   const socketRef = useRef(null);
   const currentRoomRef = useRef(null);
   const meRef = useRef(null);
+  const typingTimeout = useRef(null);
 
   // Drag state
   const dragState = useRef({
@@ -249,6 +328,43 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
     currentWindowX: 200,
     currentWindowY: 100
   });
+
+  // 🔥 HELPER: Format time
+  const formatTime = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const isToday = date.toDateString() === now.toDateString();
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+
+    if (isToday) {
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    } else if (isYesterday) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+  };
+
+  // 🔥 HELPER: Format message preview
+  const formatMessagePreview = (msg) => {
+    if (!msg) return '';
+    if (msg.deletedForEveryone) return '🚫 This message was deleted';
+    if (msg.type === 'text') return msg.text;
+    if (msg.type === 'image') return '📷 Photo';
+    if (msg.type === 'video') return '🎥 Video';
+    if (msg.type === 'audio') return '🎵 Audio';
+    return '📎 File';
+  };
 
   // Initialize socket and fetch session
   useEffect(() => {
@@ -273,31 +389,64 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
 
         socketRef.current.on('receive-message', (msg) => {
           console.log('📩 Message received:', msg);
+          
+          // Update messages if in the same room
           if (currentRoomRef.current && msg.roomId === currentRoomRef.current) {
             setMessages(prev => {
               const exists = prev.some(m => m._id === msg._id);
               if (exists) return prev;
               return [...prev, msg];
             });
+
+            // Auto mark as seen
+            if (msg.sender?._id !== meRef.current?._id) {
+              socketRef.current.emit('message-seen', { messageId: msg._id });
+            }
           }
 
+          // 🔥 UPDATE USER LIST with last message and time
           const senderId = typeof msg.sender === 'string' ? msg.sender : msg.sender?._id;
           setUsers(prevUsers =>
             prevUsers.map(u => {
               if (u._id === senderId) {
+                const isCurrentRoom = currentRoomRef.current === msg.roomId;
                 return {
                   ...u,
-                  lastMessage: msg.text || 'File',
-                  time: new Date(msg.createdAt).toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit'
-                  }),
-                  unread: currentRoomRef.current === msg.roomId ? u.unread : (u.unread || 0) + 1
+                  lastMessage: formatMessagePreview(msg),
+                  lastMessageTime: msg.createdAt,
+                  time: formatTime(msg.createdAt),
+                  unread: isCurrentRoom ? u.unread : (u.unread || 0) + 1
                 };
               }
               return u;
             })
           );
+        });
+
+        socketRef.current.on('message-seen-update', ({ messageId, userId }) => {
+          console.log('👁️ Message seen:', messageId, userId);
+          setMessages(prev =>
+            prev.map(m =>
+              m._id === messageId
+                ? { ...m, seenBy: [...(m.seenBy || []), userId] }
+                : m
+            )
+          );
+        });
+
+        socketRef.current.on('online-users', (ids) => {
+          console.log('🟢 Online users:', ids);
+          setOnlineUsers(ids);
+        });
+
+        socketRef.current.on('user-typing', ({ userId }) => {
+          console.log('⌨️ User typing:', userId);
+          setTypingUser(userId);
+        });
+
+        socketRef.current.on('user-stop-typing', () => {
+          console.log('⌨️ User stopped typing');
+          setTypingUser(null);
         });
 
         socketRef.current.on('message-deleted', ({ messageId }) => {
@@ -348,24 +497,75 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
     }
   }, [roomId]);
 
-  // Fetch users
+  // 🔥 Fetch users with last message data
   useEffect(() => {
     if (!me) return;
 
-    fetch(`${BASE_URL}/chat/users`, { credentials: 'include' })
-      .then(res => res.json())
-      .then(data => {
-        const usersWithMeta = data.map(u => ({
-          ...u,
-          avatar: u.avatar || '👤',
-          status: 'online',
-          lastMessage: '',
-          time: '',
-          unread: 0
-        }));
-        setUsers(usersWithMeta);
-      })
-      .catch(err => console.error('Users fetch error', err));
+    const fetchUsersWithLastMessages = async () => {
+      try {
+        // Get all users
+        const usersResponse = await fetch(`${BASE_URL}/chat/users`, { credentials: 'include' });
+        const usersData = await usersResponse.json();
+
+        // For each user, fetch their room and last message
+        const usersWithMessages = await Promise.all(
+          usersData.map(async (user) => {
+            try {
+              // Get or create room
+              const roomResponse = await fetch(`${BASE_URL}/chat/room`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ otherUserId: user._id })
+              });
+              const room = await roomResponse.json();
+
+              // Get messages for this room
+              const messagesResponse = await fetch(`${BASE_URL}/chat/messages/${room._id}`, {
+                credentials: 'include'
+              });
+              const messages = await messagesResponse.json();
+
+              // Get last message
+              const lastMsg = messages.length > 0 ? messages[messages.length - 1] : null;
+
+              return {
+                ...user,
+                avatar: user.avatar || '👤',
+                lastMessage: lastMsg ? formatMessagePreview(lastMsg) : '',
+                lastMessageTime: lastMsg?.createdAt || '',
+                time: lastMsg ? formatTime(lastMsg.createdAt) : '',
+                unread: 0,
+                roomId: room._id
+              };
+            } catch (err) {
+              console.error(`Error fetching data for user ${user._id}:`, err);
+              return {
+                ...user,
+                avatar: user.avatar || '👤',
+                lastMessage: '',
+                lastMessageTime: '',
+                time: '',
+                unread: 0
+              };
+            }
+          })
+        );
+
+        // Sort by last message time (most recent first)
+        usersWithMessages.sort((a, b) => {
+          if (!a.lastMessageTime) return 1;
+          if (!b.lastMessageTime) return -1;
+          return new Date(b.lastMessageTime) - new Date(a.lastMessageTime);
+        });
+
+        setUsers(usersWithMessages);
+      } catch (err) {
+        console.error('Users fetch error', err);
+      }
+    };
+
+    fetchUsersWithLastMessages();
   }, [me]);
 
   // Fetch profile
@@ -402,7 +602,7 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
     }
   }, [dropdown]);
 
-  // Window dragging logic - FIXED VERSION
+  // Window dragging logic
   useEffect(() => {
     if (isMobile) return;
     
@@ -564,27 +764,44 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
       type: 'text',
       sender: me,
       createdAt: new Date().toISOString(),
-      read: false
+      read: false,
+      seenBy: []
     };
 
     setMessages(prev => [...prev, tempMessage]);
 
+    // 🔥 Update user list with last message
     setUsers(prevUsers =>
       prevUsers.map(u =>
         u._id === selectedUser._id
           ? {
               ...u,
               lastMessage: text,
-              time: new Date().toLocaleTimeString('en-US', {
-                hour: 'numeric',
-                minute: '2-digit'
-              })
+              lastMessageTime: tempMessage.createdAt,
+              time: formatTime(tempMessage.createdAt)
             }
           : u
       )
     );
 
     setText('');
+
+    if (socketRef.current) {
+      socketRef.current.emit('stop-typing', { roomId });
+    }
+  };
+
+  // Typing handler
+  const handleTyping = (e) => {
+    setText(e.target.value);
+    if (!roomId || !socketRef.current) return;
+
+    socketRef.current.emit('typing', { roomId });
+
+    clearTimeout(typingTimeout.current);
+    typingTimeout.current = setTimeout(() => {
+      socketRef.current.emit('stop-typing', { roomId });
+    }, 1200);
   };
 
   // Send file
@@ -603,6 +820,20 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
       });
       const fileMessage = await response.json();
       setMessages(prev => [...prev, fileMessage]);
+
+      // 🔥 Update user list with file message
+      setUsers(prevUsers =>
+        prevUsers.map(u =>
+          u._id === selectedUser._id
+            ? {
+                ...u,
+                lastMessage: formatMessagePreview(fileMessage),
+                lastMessageTime: fileMessage.createdAt,
+                time: formatTime(fileMessage.createdAt)
+              }
+            : u
+        )
+      );
     } catch (err) {
       console.error('File upload error', err);
     }
@@ -640,6 +871,15 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
       });
       setMessages([]);
       setShowClearChatModal(false);
+
+      // 🔥 Update user list
+      setUsers(prevUsers =>
+        prevUsers.map(u =>
+          u._id === selectedUser._id
+            ? { ...u, lastMessage: '', lastMessageTime: '', time: '' }
+            : u
+        )
+      );
     } catch (err) {
       console.error('Clear chat error', err);
     }
@@ -729,6 +969,8 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
     );
   }
 
+  const isUserOnline = (userId) => onlineUsers.includes(userId);
+
   return (
     <div
       ref={windowRef}
@@ -749,7 +991,6 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
         if (onFocus) onFocus();
       }}
     >
-      {/* Profile Panel */}
       {showProfile && profile && (
         <ProfilePanel
           profile={profile}
@@ -759,7 +1000,6 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
         />
       )}
 
-      {/* Clear Chat Modal */}
       {showClearChatModal && (
         <ClearChatModal
           onConfirm={clearChat}
@@ -767,7 +1007,6 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
         />
       )}
 
-      {/* Title Bar */}
       {!isMobile && (
         <div
           className={`title-bar h-12 bg-gray-100 border-b border-gray-200 flex items-center justify-between px-4 select-none transition-colors duration-200 ${
@@ -809,15 +1048,12 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
         </div>
       )}
 
-      {/* Main Content */}
       <div
         className="bg-[#f0f2f5] flex"
         style={{ height: isMobile ? '100dvh' : 'calc(100% - 3rem)' }}
       >
-        {/* Sidebar */}
         {(!isMobile || !selectedUser) && (
           <div className={`${isMobile ? 'w-full' : 'w-96'} bg-white border-r border-gray-200 flex flex-col`}>
-            {/* Header */}
             <div className="bg-[#f0f2f5] p-3 flex items-center justify-between">
               <button
                 onClick={() => setShowProfile(true)}
@@ -839,10 +1075,11 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
                     setDropdown({
                       type: 'profile',
-                      x: e.currentTarget.getBoundingClientRect().left,
-                      y: e.currentTarget.getBoundingClientRect().bottom + 5
+                      anchorRect: rect,
+                      anchorSide: 'right'
                     });
                   }}
                   className="p-2 hover:bg-gray-200 rounded-full transition-colors"
@@ -852,7 +1089,6 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
               </div>
             </div>
 
-            {/* Search */}
             <div className="p-2 bg-white">
               <div className="relative">
                 <Search
@@ -869,7 +1105,6 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
               </div>
             </div>
 
-            {/* Users List */}
             <div className="flex-1 overflow-y-auto">
               {filteredUsers.length === 0 && (
                 <div className="p-4 text-center text-gray-500 text-sm">No users found</div>
@@ -894,6 +1129,9 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
                         user.avatar
                       )}
                     </div>
+                    {isUserOnline(user._id) && (
+                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
@@ -915,12 +1153,10 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
           </div>
         )}
 
-        {/* Chat Area */}
         {(!isMobile || selectedUser) && (
           <div className="flex-1 flex flex-col bg-[#efeae2]">
             {selectedUser ? (
               <>
-                {/* Chat Header */}
                 <div className="bg-[#f0f2f5] px-4 py-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     {isMobile && (
@@ -931,20 +1167,31 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
                         <ChevronLeft size={20} />
                       </button>
                     )}
-                    <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-xl overflow-hidden">
-                      {selectedUser.avatar?.startsWith('/') ? (
-                        <img
-                          src={`${BASE_URL}${selectedUser.avatar}`}
-                          alt={selectedUser.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        selectedUser.avatar
+                    <div className="relative">
+                      <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-xl overflow-hidden">
+                        {selectedUser.avatar?.startsWith('/') ? (
+                          <img
+                            src={`${BASE_URL}${selectedUser.avatar}`}
+                            alt={selectedUser.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          selectedUser.avatar
+                        )}
+                      </div>
+                      {isUserOnline(selectedUser._id) && (
+                        <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-[#f0f2f5] rounded-full"></div>
                       )}
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-900">{selectedUser.name}</h3>
-                      <p className="text-xs text-gray-500">online</p>
+                      <p className="text-xs text-gray-500">
+                        {typingUser === selectedUser._id
+                          ? 'typing...'
+                          : isUserOnline(selectedUser._id)
+                          ? 'online'
+                          : 'offline'}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -957,10 +1204,11 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        const rect = e.currentTarget.getBoundingClientRect();
                         setDropdown({
                           type: 'chat',
-                          x: e.currentTarget.getBoundingClientRect().left - 150,
-                          y: e.currentTarget.getBoundingClientRect().bottom + 5
+                          anchorRect: rect,
+                          anchorSide: 'right'
                         });
                       }}
                       className="p-2 hover:bg-gray-200 rounded-full transition-colors"
@@ -970,7 +1218,6 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
                   </div>
                 </div>
 
-                {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-2">
                   {messages.map((msg, index) => {
                     const senderId =
@@ -1057,12 +1304,15 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
                                       minute: '2-digit'
                                     })}
                                   </span>
-                                  {isMe &&
-                                    (msg.read ? (
-                                      <Check size={14} className="text-blue-500" />
-                                    ) : (
-                                      <Check size={14} />
-                                    ))}
+                                  {isMe && (
+                                    <>
+                                      {msg.seenBy && msg.seenBy.length > 0 ? (
+                                        <CheckCheck size={16} className="text-blue-500" />
+                                      ) : (
+                                        <Check size={16} className="text-gray-500" />
+                                      )}
+                                    </>
+                                  )}
                                 </div>
                               </>
                             )}
@@ -1071,13 +1321,29 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setDropdown({
-                                type: 'message',
-                                message: msg,
-                                isMe,
-                                x: e.currentTarget.getBoundingClientRect().left,
-                                y: e.currentTarget.getBoundingClientRect().bottom + 5
-                              });
+
+                              const container = e.currentTarget.closest('.relative');
+                              const bubble = container && container.querySelector('.max-w-md');
+
+                              if (bubble) {
+                                const br = bubble.getBoundingClientRect();
+                                setDropdown({
+                                  type: 'message',
+                                  message: msg,
+                                  isMe,
+                                  anchorRect: br,
+                                  anchorSide: isMe ? 'left' : 'right'
+                                });
+                              } else {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setDropdown({
+                                  type: 'message',
+                                  message: msg,
+                                  isMe,
+                                  anchorRect: rect,
+                                  anchorSide: 'right'
+                                });
+                              }
                             }}
                             className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded transition-all"
                           >
@@ -1090,7 +1356,6 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
                   <div ref={messagesEndRef} />
                 </div>
 
-                {/* Input Area */}
                 <div className="bg-[#f0f2f5] px-4 py-3 flex items-center gap-2 relative">
                   <button
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -1124,7 +1389,7 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
                     type="text"
                     placeholder="Type a message"
                     value={text}
-                    onChange={(e) => setText(e.target.value)}
+                    onChange={handleTyping}
                     onKeyPress={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
@@ -1168,11 +1433,11 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
         )}
       </div>
 
-      {/* Dropdown Menus */}
       {dropdown && dropdown.type === 'profile' && (
         <DropdownMenu
-          x={dropdown.x}
-          y={dropdown.y}
+          anchorRect={dropdown.anchorRect}
+          anchorSide={dropdown.anchorSide}
+          containerRef={windowRef}
           onClose={() => setDropdown(null)}
           options={[
             {
@@ -1197,8 +1462,9 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
 
       {dropdown && dropdown.type === 'chat' && (
         <DropdownMenu
-          x={dropdown.x}
-          y={dropdown.y}
+          anchorRect={dropdown.anchorRect}
+          anchorSide={dropdown.anchorSide}
+          containerRef={windowRef}
           onClose={() => setDropdown(null)}
           options={[
             {
@@ -1228,8 +1494,9 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
 
       {dropdown && dropdown.type === 'message' && (
         <DropdownMenu
-          x={dropdown.x}
-          y={dropdown.y}
+          anchorRect={dropdown.anchorRect}
+          anchorSide={dropdown.anchorSide}
+          containerRef={windowRef}
           onClose={() => setDropdown(null)}
           options={[
             {
