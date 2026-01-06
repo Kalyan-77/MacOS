@@ -1,19 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Minus, Square, Code } from 'lucide-react';
+import { X, Menu } from 'lucide-react';
 
-export default function VSCode({ onClose, zIndex = 1000, onFocus   }) {
-  const [isLoaded, setIsLoaded] = useState(false);
-  
+export default function VSCodeWindow({ onClose, zIndex = 1000, onFocus, iframeUrl = "https://vscode-lomq.onrender.com" }) {
   // Window state
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
-  const [prevPosition, setPrevPosition] = useState({ x: 300, y: 150 });
+  const [prevPosition, setPrevPosition] = useState({ x: 50, y: 50 });
   const [isActive, setIsActive] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   const windowRef = useRef(null);
 
-  // Dragging variables for native-like movement
+  // Dragging variables
   const dragState = useRef({
     holdingWindow: false,
     mouseTouchX: 0,
@@ -21,11 +21,24 @@ export default function VSCode({ onClose, zIndex = 1000, onFocus   }) {
     startWindowX: 300,
     startWindowY: 150,
     currentWindowX: 300,
-    currentWindowY: 100
+    currentWindowY: 50
   });
 
-  // Initialize dragging system - native Windows-like movement
+  // Check if mobile
   useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Window management
+  useEffect(() => {
+    if (isMobile) return;
+    
     const windowElement = windowRef.current;
     if (!windowElement) return;
 
@@ -33,19 +46,14 @@ export default function VSCode({ onClose, zIndex = 1000, onFocus   }) {
 
     const handleMouseMove = (e) => {
       if (dragState.current.holdingWindow && !isMaximized) {
-        // Cancel any existing animation frame to ensure smooth movement
-        if (animationFrame) {
-          cancelAnimationFrame(animationFrame);
-        }
+        if (animationFrame) cancelAnimationFrame(animationFrame);
 
-        // Calculate direct position based on mouse offset from initial click
         const deltaX = e.clientX - dragState.current.mouseTouchX;
         const deltaY = e.clientY - dragState.current.mouseTouchY;
         
         dragState.current.currentWindowX = dragState.current.startWindowX + deltaX;
         dragState.current.currentWindowY = dragState.current.startWindowY + deltaY;
 
-        // Allow more freedom - only prevent going completely off screen
         const minX = -windowElement.offsetWidth + 100;
         const minY = 0;
         const maxX = window.innerWidth - 100;
@@ -54,7 +62,6 @@ export default function VSCode({ onClose, zIndex = 1000, onFocus   }) {
         dragState.current.currentWindowX = Math.max(minX, Math.min(maxX, dragState.current.currentWindowX));
         dragState.current.currentWindowY = Math.max(minY, Math.min(maxY, dragState.current.currentWindowY));
 
-        // Use requestAnimationFrame for ultra-smooth movement
         animationFrame = requestAnimationFrame(() => {
           windowElement.style.transform = `translate3d(${dragState.current.currentWindowX}px, ${dragState.current.currentWindowY}px, 0)`;
         });
@@ -70,15 +77,13 @@ export default function VSCode({ onClose, zIndex = 1000, onFocus   }) {
           e.preventDefault();
           e.stopPropagation();
 
-            if (onFocus) {
-              onFocus();
-            }
+          if (onFocus) {
+            onFocus();
+          }
           
           dragState.current.holdingWindow = true;
           setIsActive(true);
           setIsDragging(true);
-
-          // z-index handled by parent MacOS via `zIndex` prop
 
           dragState.current.mouseTouchX = e.clientX;
           dragState.current.mouseTouchY = e.clientY;
@@ -93,7 +98,7 @@ export default function VSCode({ onClose, zIndex = 1000, onFocus   }) {
       }
     };
 
-    const handleMouseUp = (e) => {
+    const handleMouseUp = () => {
       if (dragState.current.holdingWindow) {
         dragState.current.holdingWindow = false;
         setIsDragging(false);
@@ -110,7 +115,12 @@ export default function VSCode({ onClose, zIndex = 1000, onFocus   }) {
       }
     };
 
-    const handleContextMenu = (e) => {
+    const handleWindowClick = () => {
+      setIsActive(true);
+      if (onFocus) onFocus();
+    };
+
+    const handleContextMenuGlobal = (e) => {
       if (dragState.current.holdingWindow) {
         e.preventDefault();
       }
@@ -118,7 +128,7 @@ export default function VSCode({ onClose, zIndex = 1000, onFocus   }) {
 
     document.addEventListener('mousemove', handleMouseMove, { passive: false });
     document.addEventListener('mouseup', handleMouseUp);
-    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('contextmenu', handleContextMenuGlobal);
     windowElement.addEventListener('mousedown', handleMouseDown);
 
     windowElement.style.transform = `translate3d(${dragState.current.currentWindowX}px, ${dragState.current.currentWindowY}px, 0)`;
@@ -127,37 +137,29 @@ export default function VSCode({ onClose, zIndex = 1000, onFocus   }) {
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('contextmenu', handleContextMenuGlobal);
       windowElement.removeEventListener('mousedown', handleMouseDown);
       
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
       document.body.style.pointerEvents = '';
       
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
-      }
+      if (animationFrame) cancelAnimationFrame(animationFrame);
     };
-  }, [isMaximized]);
+  }, [isMaximized, isMobile, onFocus]);
 
-  // Traffic light handlers
-  const handleClose = () => {
-    onClose();
-  };
-
-  const handleMinimize = () => {
-    setIsMinimized(!isMinimized);
-  };
-
+  const handleClose = () => onClose();
+  const handleMinimize = () => setIsMinimized(!isMinimized);
+  
   const handleMaximize = () => {
+    if (isMobile) return;
+    
     if (isMaximized) {
-      // Restore to previous position
       setIsMaximized(false);
       dragState.current.currentWindowX = prevPosition.x;
       dragState.current.currentWindowY = prevPosition.y;
       windowRef.current.style.transform = `translate3d(${dragState.current.currentWindowX}px, ${dragState.current.currentWindowY}px, 0)`;
     } else {
-      // Store current position and maximize
       setPrevPosition({
         x: dragState.current.currentWindowX,
         y: dragState.current.currentWindowY
@@ -169,132 +171,131 @@ export default function VSCode({ onClose, zIndex = 1000, onFocus   }) {
     }
   };
 
-  const handleWindowClick = () => {
-    setIsActive(true);
-    if(onFocus) onFocus();
-  };
-
-  const handleIframeLoad = () => {
-    setIsLoaded(true);
+  const mobileStyles = isMobile ? {
+    position: 'fixed',
+    inset: 0,
+    width: '100vw',
+    height: '100vh',
+    transform: 'none',
+    borderRadius: 0,
+  } : {
+    width: isMaximized ? '100vw' : '1200px',
+    height: isMaximized ? 'calc(100vh - 25px)' : '700px',
   };
 
   return (
     <div
       ref={windowRef}
-      className={`fixed bg-white rounded-xl shadow-2xl overflow-hidden transition-all duration-200 ${
+      className={`${isMobile ? 'fixed inset-0' : 'fixed'} bg-white ${isMobile ? '' : 'rounded-xl shadow-2xl'} overflow-hidden transition-all duration-200 ${
         isActive ? 'ring-2 ring-blue-500/20' : ''
       } ${
         isMinimized ? 'scale-95 opacity-50' : 'scale-100 opacity-100'
       }`}
       style={{
-        left: 0,
-        top: 0,
-        width: isMaximized ? '100vw' : '1000px',
-        height: isMaximized ? 'calc(100vh - 25px)' : '600px',
+        left: isMobile ? 0 : undefined,
+        top: isMobile ? 0 : undefined,
+        ...mobileStyles,
         zIndex: zIndex,
         display: isMinimized ? 'none' : 'block',
         willChange: isDragging ? 'transform' : 'auto',
         transition: isDragging ? 'none' : 'all 0.2s'
       }}
       onClick={() => {
-        handleWindowClick();
+        setIsActive(true);
         if (onFocus) onFocus();
       }}
     >
       {/* Title Bar */}
       <div
-        className={`title-bar h-12 bg-gray-100 border-b border-gray-200 flex items-center justify-between px-4 select-none transition-colors duration-200 ${
-          isActive ? 'bg-gray-100' : 'bg-gray-50'
-        }`}
+        className={`title-bar ${isMobile ? 'h-14' : 'h-12'} bg-[#1e1e1e] border-b border-[#2d2d30] flex items-center justify-between px-4 select-none transition-colors duration-200`}
         style={{ 
-          cursor: 'default',
-          WebkitAppRegion: 'drag'
+          cursor: isMobile ? 'default' : 'default',
+          WebkitAppRegion: isMobile ? 'no-drag' : 'drag'
         }}
       >
-        {/* Traffic Light Buttons */}
-        <div className="traffic-lights flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
-          <button
-            className="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600 transition-colors duration-150 group flex items-center justify-center"
-            onClick={handleClose}
-            title="Close"
-            style={{ cursor: 'pointer' }}
-          >
-            <X size={8} className="text-red-800 opacity-0 group-hover:opacity-100 transition-opacity" />
-          </button>
-          <button
-            className="w-3 h-3 bg-yellow-500 rounded-full hover:bg-yellow-600 transition-colors duration-150 group flex items-center justify-center"
-            onClick={handleMinimize}
-            title="Minimize"
-            style={{ cursor: 'pointer' }}
-          >
-            <Minus size={8} className="text-yellow-800 opacity-0 group-hover:opacity-100 transition-opacity" />
-          </button>
-          <button
-            className="w-3 h-3 bg-green-500 rounded-full hover:bg-green-600 transition-colors duration-150 group flex items-center justify-center"
-            onClick={handleMaximize}
-            title={isMaximized ? "Restore" : "Maximize"}
-            style={{ cursor: 'pointer' }}
-          >
-            <div className="w-1.5 h-1.5 border border-green-800 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          </button>
+        <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
+          {!isMobile && (
+            <div className="traffic-lights flex items-center gap-2">
+              <button
+                className="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600 transition-colors duration-150 group flex items-center justify-center"
+                onClick={handleClose}
+                title="Close"
+                style={{ cursor: 'pointer' }}
+              >
+                <X size={8} className="text-red-800 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+              <button
+                className="w-3 h-3 bg-yellow-500 rounded-full hover:bg-yellow-600 transition-colors duration-150 group flex items-center justify-center"
+                onClick={handleMinimize}
+                title="Minimize"
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="w-2 h-0.5 bg-yellow-800 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              </button>
+              <button
+                className="w-3 h-3 bg-green-500 rounded-full hover:bg-green-600 transition-colors duration-150 group flex items-center justify-center"
+                onClick={handleMaximize}
+                title={isMaximized ? "Restore" : "Maximize"}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="w-1.5 h-1.5 border border-green-800 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              </button>
+            </div>
+          )}
+          
+          {isMobile && (
+            <button
+              onClick={handleClose}
+              className="p-2 hover:bg-gray-700 rounded transition-colors"
+              style={{ cursor: 'pointer' }}
+            >
+              <Menu size={20} className="text-gray-300" />
+            </button>
+          )}
         </div>
 
-        {/* Window Title */}
-        <div className="absolute left-1/2 transform -translate-x-1/2 pointer-events-none flex items-center gap-2">
-          <Code size={16} className="text-blue-600" />
-          <h1 className="text-sm font-medium text-gray-700">Visual Studio Code</h1>
+        <div className={`flex items-center gap-2 ${isMobile ? 'flex-1 mx-4' : ''}`}>
+          <div className={`${isMobile ? '' : 'absolute left-1/2 transform -translate-x-1/2'} pointer-events-none`}>
+            <div className={`flex items-center gap-2 ${isMobile ? 'text-base' : 'text-sm'} text-gray-300`}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="flex-shrink-0">
+                <path d="M14.5 2.5L8 13.5L1.5 2.5H14.5Z" fill="#007ACC"/>
+              </svg>
+              <span className="font-medium">Visual Studio Code</span>
+            </div>
+          </div>
         </div>
 
-        <div style={{ WebkitAppRegion: 'no-drag' }}></div>
+        <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
+          {isMobile && (
+            <button
+              onClick={handleClose}
+              className="p-2 hover:bg-gray-700 rounded transition-colors"
+              style={{ cursor: 'pointer' }}
+            >
+              <X size={20} className="text-gray-300" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* VS Code Content */}
-      <div className="relative h-full bg-gray-50" style={{ height: 'calc(100% - 3rem)' }}>
-        {/* Loading overlay */}
-        {!isLoaded && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+      {/* VS Code iframe */}
+      <div className="w-full h-full bg-[#1e1e1e] relative" style={{ height: `calc(100% - ${isMobile ? '3.5rem' : '3rem'})` }}>
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-[#1e1e1e]">
             <div className="text-center">
-              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-600 text-lg">Loading VS Code...</p>
-              <p className="text-gray-500 text-sm mt-2">This may take a moment</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+              <div className="text-sm text-gray-400">Loading VS Code...</div>
             </div>
           </div>
         )}
-        
-        {/* VS Code iframe */}
         <iframe
-          src="https://vscode.dev"
+          src={iframeUrl}
           className="w-full h-full border-0"
           title="Visual Studio Code"
-          onLoad={handleIframeLoad}
-          allow="clipboard-read; clipboard-write; web-share"
-          referrerPolicy="strict-origin-when-cross-origin"
-          style={{
-            opacity: isLoaded ? 1 : 0,
-            transition: 'opacity 0.3s ease-in-out'
-          }}
+          allow="clipboard-read; clipboard-write"
+          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-downloads"
+          onLoad={() => setIsLoading(false)}
         />
-        
-        {/* Fallback content if iframe fails */}
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-100" style={{ zIndex: isLoaded ? -1 : 5 }}>
-          <div className="text-center p-8">
-            <Code size={48} className="text-blue-600 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">VS Code Web Editor</h2>
-            <p className="text-gray-600 mb-4">Click the button below to open VS Code in a new tab</p>
-            <a 
-              href="https://vscode.dev/" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200"
-            >
-              <Code size={20} />
-              Open VS Code
-            </a>
-            <p className="text-sm text-gray-500 mt-4">
-              VS Code will open in a new browser tab due to security restrictions
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );

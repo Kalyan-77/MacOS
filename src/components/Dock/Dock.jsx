@@ -25,6 +25,7 @@ import zoom from "/AppIcons/zoom.webp";
 import teams from "/AppIcons/teams.jpg";
 import whatsapp from "/AppIcons/Whatsapp.png";
 import instagram from "/AppIcons/Instagram.jpg";
+import perplexity from "/AppIcons/perplexity.avif"
 import { BASE_URL } from "../../../config";
 
 export default function Dock({ toggleApp, activeApps = {}, userId }) {
@@ -51,7 +52,7 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
     { name: "Mail", icon: mail },
     { name: "Trash", icon: bin, action: () => toggleApp("trash"), key: "trash" },
     { name: "Music", icon: music, action: () => toggleApp("musicplayer"), key: "musicplayer" },
-    { name: "Reminders", icon: remainder },
+    { name: "Reminders", icon: remainder }, 
     { name: "Edge", icon: edge, action: () => toggleApp("edge"), key: "edge" },
     { name: "VLC", icon: vlc, action: () => toggleApp("vlcplayer"), key: "vlcplayer" },
     { name: "Photoshop", icon: photos },
@@ -70,6 +71,7 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
     { name: "Video Player", icon: TV, action: () => toggleApp("videoplayer"), key: "videoplayer" },
     { name: "WhatsApp", icon: whatsapp, action: () => toggleApp("whatsapp"), key: "whatsapp" },
     { name: "Instagram", icon: instagram, action: () => toggleApp("Instagram"), key: "Instagram" },
+    { name: "Perplexity.AI", icon: perplexity, action: () => toggleApp("perplexity"), key: "perplexity" },
   ];
 
   // Default apps that are always present for all users

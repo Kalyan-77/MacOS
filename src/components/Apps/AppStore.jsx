@@ -209,8 +209,8 @@ export default function AppStore({ onClose, onFocus, zIndex = 1000, userId }) {
     }
 
     // If it's a path to an image file
-    if (icon.includes('.png') || icon.includes('.jpg') || icon.includes('.jpeg') || icon.includes('.svg') || icon.includes('.webp')) {
-      let cleanPath = icon.trim();
+    if (icon.includes('.png') || icon.includes('.jpg') || icon.includes('.jpeg') || icon.includes('.svg') || icon.includes('.webp') || icon.includes('.avif')) {
+      let cleanPath = icon.trim(); 
       
       if (cleanPath.startsWith('/')) {
         cleanPath = cleanPath.substring(1);

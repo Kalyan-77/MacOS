@@ -21,6 +21,7 @@ import Trash from "./components/Apps/Trash";
 import AppStore from "./components/Apps/AppStore";
 import MusicPlayer from "./components/Apps/Music";
 import Whatspp from "./components/Apps/Whatspp";
+import Perplexity from "./components/Apps/Perplexity";
 
 // Desktop Item Component (Folder or File)
 const DesktopItem = ({ item, onDoubleClick, onRightClick, isSelected, onClick, onMenuClick, position, onPositionChange }) => {
@@ -469,6 +470,7 @@ export default function MacOS() {
     appstore: false,
     musicplayer: false,
     whatsapp: false,
+    perplexity: false,
   });
 
   const [appZIndices, setAppZIndices] = useState({});
@@ -1194,6 +1196,14 @@ const bringToFront = (appName) => {
     onClose={() => toggleApp("whatsapp")}
     zIndex={appZIndices.whatsapp || (openApps.whatsapp ? highestZIndex + 1 : 1000)}
     onFocus={() => bringToFront("whatsapp")}
+  />
+)}
+{openApps.perplexity && (
+  <Perplexity 
+    onClose={() => toggleApp("perplexity")}
+    userId={userId}
+    zIndex={appZIndices.perplexity || (openApps.perplexity ? highestZIndex + 1 : 1000)}
+    onFocus={() => bringToFront("perplexity")}
   />
 )}
         
