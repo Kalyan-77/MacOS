@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Minus, Square, Terminal, Folder, Search, Settings } from 'lucide-react';
+import { Terminal, Folder, Search, Settings } from 'lucide-react';
 
-export default function TerminalTab({ onClose , zIndex = 1000, onFocus  }) {
+export default function TerminalTab() {
   // Terminal state
   const [currentDirectory, setCurrentDirectory] = useState('/home/user');
   const [history, setHistory] = useState([
@@ -68,48 +68,10 @@ export default function TerminalTab({ onClose , zIndex = 1000, onFocus  }) {
     }
   });
 
-  // Window state
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [isMaximized, setIsMaximized] = useState(false);
-  const [prevPosition, setPrevPosition] = useState({ x: 50, y: 50 });
-  const [isActive, setIsActive] = useState(true);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  
-  const windowRef = useRef(null);
   const terminalRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Dragging variables
-  const dragState = useRef({
-    holdingWindow: false,
-    mouseTouchX: 0,
-    mouseTouchY: 0,
-    startWindowX: 50,
-    startWindowY: 50,
-    currentWindowX: 50,
-    currentWindowY: 50
-  });
-
   // Check if device is mobile/tablet
-  useEffect(() => {
-    const checkMobile = () => {
-      const isMobileDevice = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      setIsMobile(isMobileDevice);
-      
-      // Auto-maximize on mobile
-      if (isMobileDevice && !isMaximized) {
-        setIsMaximized(true);
-        dragState.current.currentWindowX = 0;
-        dragState.current.currentWindowY = 0;
-      }
-    };
-
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
   // File system utilities
   const resolvePath = (path) => {
     if (path.startsWith('/')) {
@@ -762,331 +724,47 @@ DESCRIPTION
     }
   }, [history]);
 
-  // Focus input when terminal is clicked
-  useEffect(() => {
-    if (inputRef.current && isActive) {
-      inputRef.current.focus();
-    }
-  }, [isActive, history]);
-
-  // Initialize dragging system (disabled on mobile)
-  useEffect(() => {
-    if (isMobile) return;
-
-    const windowElement = windowRef.current;
-    if (!windowElement) return;
-
-    let animationFrame = null;
-
-    const handleMouseMove = (e) => {
-      if (dragState.current.holdingWindow && !isMaximized) {
-        if (animationFrame) {
-          cancelAnimationFrame(animationFrame);
-        }
-
-        const deltaX = e.clientX - dragState.current.mouseTouchX;
-        const deltaY = e.clientY - dragState.current.mouseTouchY;
-        
-        dragState.current.currentWindowX = dragState.current.startWindowX + deltaX;
-        dragState.current.currentWindowY = dragState.current.startWindowY + deltaY;
-
-        const minX = -windowElement.offsetWidth + 100;
-        const minY = 0;
-        const maxX = window.innerWidth - 100;
-        const maxY = window.innerHeight - 100;
-
-        dragState.current.currentWindowX = Math.max(minX, Math.min(maxX, dragState.current.currentWindowX));
-        dragState.current.currentWindowY = Math.max(minY, Math.min(maxY, dragState.current.currentWindowY));
-
-        animationFrame = requestAnimationFrame(() => {
-          windowElement.style.transform = `translate3d(${dragState.current.currentWindowX}px, ${dragState.current.currentWindowY}px, 0)`;
-        });
-      }
-    };
-
-    const handleMouseDown = (e) => {
-      if (e.button === 0) {
-        const titleBar = e.target.closest('.title-bar');
-        const isButton = e.target.closest('.traffic-lights') || e.target.closest('button');
-        
-        if (titleBar && !isButton) {
-          e.preventDefault();
-          e.stopPropagation();
-
-            if (onFocus) {
-              onFocus();
-            }
-          
-          dragState.current.holdingWindow = true;
-          setIsActive(true);
-          setIsDragging(true);
-
-          // z-index is managed by the parent MacOS component via the `zIndex` prop
-
-          dragState.current.mouseTouchX = e.clientX;
-          dragState.current.mouseTouchY = e.clientY;
-          dragState.current.startWindowX = dragState.current.currentWindowX;
-          dragState.current.startWindowY = dragState.current.currentWindowY;
-
-          document.body.style.userSelect = 'none';
-          document.body.style.cursor = 'default';
-          document.body.style.pointerEvents = 'none';
-          windowElement.style.pointerEvents = 'auto';
-        }
-      }
-    };
-
-    const handleMouseUp = () => {
-      if (dragState.current.holdingWindow) {
-        dragState.current.holdingWindow = false;
-        setIsDragging(false);
-        
-        document.body.style.userSelect = '';
-        document.body.style.cursor = '';
-        document.body.style.pointerEvents = '';
-        windowElement.style.pointerEvents = '';
-
-        if (animationFrame) {
-          cancelAnimationFrame(animationFrame);
-          animationFrame = null;
-        }
-      }
-    };
-
-    const handleContextMenu = (e) => {
-      if (dragState.current.holdingWindow) {
-        e.preventDefault();
-      }
-    };
-
-    document.addEventListener('mousemove', handleMouseMove, { passive: false });
-    document.addEventListener('mouseup', handleMouseUp);
-    document.addEventListener('contextmenu', handleContextMenu);
-    windowElement.addEventListener('mousedown', handleMouseDown);
-
-    windowElement.style.transform = `translate3d(${dragState.current.currentWindowX}px, ${dragState.current.currentWindowY}px, 0)`;
-    windowElement.style.willChange = 'transform';
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('contextmenu', handleContextMenu);
-      windowElement.removeEventListener('mousedown', handleMouseDown);
-      
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
-      document.body.style.pointerEvents = '';
-      
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
-      }
-    };
-  }, [isMaximized, isMobile]);
-
-  // Traffic light handlers
-  const handleClose = () => {
-    onClose();
-  };
-
-  const handleMinimize = () => {
-    setIsMinimized(!isMinimized);
-  };
-
-  const handleMaximize = () => {
-    if (isMaximized) {
-      setIsMaximized(false);
-      dragState.current.currentWindowX = prevPosition.x;
-      dragState.current.currentWindowY = prevPosition.y;
-      if (windowRef.current) {
-        windowRef.current.style.transform = `translate3d(${dragState.current.currentWindowX}px, ${dragState.current.currentWindowY}px, 0)`;
-      }
-    } else {
-      setPrevPosition({
-        x: dragState.current.currentWindowX,
-        y: dragState.current.currentWindowY
-      });
-      setIsMaximized(true);
-      dragState.current.currentWindowX = 0;
-      dragState.current.currentWindowY = isMobile ? 0 : 25;
-      if (windowRef.current) {
-        windowRef.current.style.transform = `translate3d(0px, ${isMobile ? 0 : 25}px, 0)`;
-      }
-    }
-  };
-
-  const handleWindowClick = () => {
-    setIsActive(true);
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
-    if(onFocus) onFocus();
-  };
-
-  // Get responsive dimensions
-  const getWindowDimensions = () => {
-    if (isMaximized) {
-      return {
-        width: '100vw',
-        height: isMobile ? '100vh' : 'calc(100vh - 25px)'
-      };
-    }
-    
-    if (isMobile) {
-      return {
-        width: '100vw',
-        height: '100vh'
-      };
-    }
-    
-    // Desktop windowed mode
-    const maxWidth = Math.min(1000, window.innerWidth - 100);
-    const maxHeight = Math.min(600, window.innerHeight - 100);
-    
-    return {
-      width: `${maxWidth}px`,
-      height: `${maxHeight}px`
-    };
-  };
-
-  const dimensions = getWindowDimensions();
-
   return (
-    <div
-      ref={windowRef}
-      className={`fixed bg-gray-900 overflow-hidden ${
-        isMobile ? 'rounded-none' : 'rounded-xl shadow-2xl'
-      } ${
-        isActive ? 'ring-2 ring-blue-500/20' : ''
-      }`}
-      style={{
-        left: 0,
-        top: 0,
-        width: dimensions.width,
-        height: dimensions.height,
-        zIndex: zIndex,
-        display: isMinimized ? 'none' : 'block',
-        willChange: isDragging ? 'transform' : 'auto'
-      }}
-      onClick={() => {
-        handleWindowClick();
-        if (onFocus) onFocus();
+    <div 
+      ref={terminalRef}
+      className="h-full bg-black text-green-400 font-mono text-sm p-4 overflow-y-auto"
+      style={{ 
+        scrollbarWidth: 'thin',
+        scrollbarColor: '#4a5568 #1a202c'
       }}
     >
-      {/* Title Bar */}
-      <div
-        className={`title-bar ${isMobile ? 'h-14' : 'h-12'} bg-gray-800 border-b border-gray-700 flex items-center justify-between ${isMobile ? 'px-4' : 'px-4'} select-none ${
-          isActive ? 'bg-gray-800' : 'bg-gray-850'
-        }`}
-        style={{ 
-          cursor: isMobile ? 'default' : 'default',
-          WebkitAppRegion: isMobile ? 'no-drag' : 'drag'
-        }}
-      >
-        {/* Traffic Light Buttons */}
-        <div className="traffic-lights flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
-          <button
-            className={`${isMobile ? 'w-4 h-4' : 'w-3 h-3'} bg-red-500 rounded-full hover:bg-red-600 transition-colors duration-150 group flex items-center justify-center`}
-            onClick={handleClose}
-            title="Close"
-            style={{ cursor: 'pointer' }}
-          >
-            <X size={isMobile ? 10 : 8} className="text-red-800 opacity-0 group-hover:opacity-100 transition-opacity" />
-          </button>
-          {!isMobile && (
-            <>
-              <button
-                className="w-3 h-3 bg-yellow-500 rounded-full hover:bg-yellow-600 transition-colors duration-150 group flex items-center justify-center"
-                onClick={handleMinimize}
-                title="Minimize"
-                style={{ cursor: 'pointer' }}
-              >
-                <Minus size={8} className="text-yellow-800 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </button>
-              <button
-                className="w-3 h-3 bg-green-500 rounded-full hover:bg-green-600 transition-colors duration-150 group flex items-center justify-center"
-                onClick={handleMaximize}
-                title={isMaximized ? "Restore" : "Maximize"}
-                style={{ cursor: 'pointer' }}
-              >
-                <Square size={6} className="text-green-800 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </button>
-            </>
+      {/* History */}
+      {history.map((entry, index) => (
+        <div key={index} className="mb-1">
+          {entry.type === 'command' ? (
+            <div className="text-green-400 break-all">{entry.content}</div>
+          ) : (
+            <pre className="text-gray-300 whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{
+              __html: entry.content
+                .replace(/\x1b\[34m(.*?)\x1b\[0m/g, '<span class="text-blue-400">$1</span>')
+                .replace(/\x1b\[31m(.*?)\x1b\[0m/g, '<span class="text-red-400">$1</span>')
+                .replace(/\x1b\[33m(.*?)\x1b\[0m/g, '<span class="text-yellow-400">$1</span>')
+            }} />
           )}
         </div>
+      ))}
 
-        {/* Window Title */}
-        <div className="absolute left-1/2 transform -translate-x-1/2 pointer-events-none">
-          <h1 className={`${isMobile ? 'text-base' : 'text-sm'} font-medium text-gray-300 flex items-center gap-2`}>
-            <Terminal size={isMobile ? 18 : 16} />
-            <span className={isMobile ? 'block' : 'hidden sm:block'}>
-              Terminal - {username}@{hostname}:{currentDirectory.length > 20 ? '...' + currentDirectory.slice(-17) : currentDirectory}
-            </span>
-            <span className={isMobile ? 'hidden' : 'block sm:hidden'}>Terminal</span>
-          </h1>
-        </div>
-
-        {/* Toolbar Icons */}
-        {!isMobile && (
-          <div className="flex items-center gap-3" style={{ WebkitAppRegion: 'no-drag' }}>
-            <button className="p-1.5 hover:bg-gray-700 rounded transition-colors" style={{ cursor: 'pointer' }}>
-              <Folder size={16} className="text-gray-400" />
-            </button>
-            <button className="p-1.5 hover:bg-gray-700 rounded transition-colors" style={{ cursor: 'pointer' }}>
-              <Search size={16} className="text-gray-400" />
-            </button>
-            <button className="p-1.5 hover:bg-gray-700 rounded transition-colors" style={{ cursor: 'pointer' }}>
-              <Settings size={16} className="text-gray-400" />
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Terminal Content */}
-      <div 
-        ref={terminalRef}
-        className={`h-full bg-black text-green-400 font-mono ${isMobile ? 'text-sm p-3' : 'text-sm p-4'} overflow-y-auto`}
-        style={{ 
-          height: isMobile ? 'calc(100% - 3.5rem)' : 'calc(100% - 3rem)',
-          scrollbarWidth: 'thin',
-          scrollbarColor: '#4a5568 #1a202c'
-        }}
-      >
-        {/* History */}
-        {history.map((entry, index) => (
-          <div key={index} className="mb-1">
-            {entry.type === 'command' ? (
-              <div className="text-green-400 break-all">{entry.content}</div>
-            ) : (
-              <pre className="text-gray-300 whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{
-                __html: entry.content
-                  .replace(/\x1b\[34m(.*?)\x1b\[0m/g, '<span class="text-blue-400">$1</span>')
-                  .replace(/\x1b\[31m(.*?)\x1b\[0m/g, '<span class="text-red-400">$1</span>')
-                  .replace(/\x1b\[33m(.*?)\x1b\[0m/g, '<span class="text-yellow-400">$1</span>')
-              }} />
-            )}
-          </div>
-        ))}
-
-        {/* Current Command Line */}
-        <form onSubmit={handleSubmit} className="flex items-start flex-wrap">
-          <span className="text-green-400 mr-2 shrink-0 break-all">
-            {isMobile ? 
-              `${username}@${hostname}:${currentDirectory.length > 15 ? '...' + currentDirectory.slice(-12) : currentDirectory}$ ` :
-              `${username}@${hostname}:${currentDirectory}$ `
-            }
-          </span>
-          <input
-            ref={inputRef}
-            type="text"
-            value={currentCommand}
-            onChange={(e) => setCurrentCommand(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="flex-1 min-w-0 bg-transparent text-green-400 border-none outline-none font-mono"
-            style={{ cursor: 'text' }}
-            autoFocus
-          />
-        </form>
-      </div>
+      {/* Current Command Line */}
+      <form onSubmit={handleSubmit} className="flex items-start flex-wrap">
+        <span className="text-green-400 mr-2 shrink-0 break-all">
+          {username}@{hostname}:{currentDirectory}$ 
+        </span>
+        <input
+          ref={inputRef}
+          type="text"
+          value={currentCommand}
+          onChange={(e) => setCurrentCommand(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="flex-1 min-w-0 bg-transparent text-green-400 border-none outline-none font-mono"
+          style={{ cursor: 'text' }}
+          autoFocus
+        />
+      </form>
     </div>
   );
 }

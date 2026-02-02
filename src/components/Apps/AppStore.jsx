@@ -6,15 +6,7 @@ import {
 } from 'lucide-react';
 import {BASE_URL} from '../../../config.js';
 
-export default function AppStore({ onClose, onFocus, zIndex = 1000, userId }) {
-  // Window state
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [isMaximized, setIsMaximized] = useState(false);
-  const [prevPosition, setPrevPosition] = useState({ x: 50, y: 50 });
-  const [isActive, setIsActive] = useState(true);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-    
+export default function AppStore({ userId }) {
   // App state
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -26,19 +18,6 @@ export default function AppStore({ onClose, onFocus, zIndex = 1000, userId }) {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [notification, setNotification] = useState(null);
-  
-  const windowRef = useRef(null);
-  
-  // Dragging variables
-  const dragState = useRef({
-    holdingWindow: false,
-    mouseTouchX: 0,
-    mouseTouchY: 0,
-    startWindowX: 300,
-    startWindowY: 50,
-    currentWindowX: 300,
-    currentWindowY: 50
-  });
 
   // App categories
   const categories = [
@@ -368,248 +347,15 @@ export default function AppStore({ onClose, onFocus, zIndex = 1000, userId }) {
   const installedCount = apps.filter(app => app.installed).length;
   const installingCount = apps.filter(app => app.installing).length;
 
-  // Check if mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  // Window management
-  useEffect(() => {
-    if (isMobile) return;
-    
-    const windowElement = windowRef.current;
-    if (!windowElement) return;
-
-    let animationFrame = null;
-
-    const handleMouseMove = (e) => {
-      if (dragState.current.holdingWindow && !isMaximized) {
-        if (animationFrame) cancelAnimationFrame(animationFrame);
-
-        const deltaX = e.clientX - dragState.current.mouseTouchX;
-        const deltaY = e.clientY - dragState.current.mouseTouchY;
-        
-        dragState.current.currentWindowX = dragState.current.startWindowX + deltaX;
-        dragState.current.currentWindowY = dragState.current.startWindowY + deltaY;
-
-        const minX = -windowElement.offsetWidth + 100;
-        const minY = 0;
-        const maxX = window.innerWidth - 100;
-        const maxY = window.innerHeight - 100;
-
-        dragState.current.currentWindowX = Math.max(minX, Math.min(maxX, dragState.current.currentWindowX));
-        dragState.current.currentWindowY = Math.max(minY, Math.min(maxY, dragState.current.currentWindowY));
-
-        animationFrame = requestAnimationFrame(() => {
-          windowElement.style.transform = `translate3d(${dragState.current.currentWindowX}px, ${dragState.current.currentWindowY}px, 0)`;
-        });
-      }
-    };
-
-    const handleMouseDown = (e) => {
-      if (e.button === 0) {
-        const titleBar = e.target.closest('.title-bar');
-        const isButton = e.target.closest('.traffic-lights') || e.target.closest('button');
-        
-        if (titleBar && !isButton) {
-          e.preventDefault();
-          e.stopPropagation();
-
-          if (onFocus) onFocus();
-          
-          dragState.current.holdingWindow = true;
-          setIsActive(true);
-          setIsDragging(true);
-
-          dragState.current.mouseTouchX = e.clientX;
-          dragState.current.mouseTouchY = e.clientY;
-          dragState.current.startWindowX = dragState.current.currentWindowX;
-          dragState.current.startWindowY = dragState.current.currentWindowY;
-
-          document.body.style.userSelect = 'none';
-          document.body.style.cursor = 'default';
-          document.body.style.pointerEvents = 'none';
-          windowElement.style.pointerEvents = 'auto';
-        }
-      }
-    };
-
-    const handleMouseUp = () => {
-      if (dragState.current.holdingWindow) {
-        dragState.current.holdingWindow = false;
-        setIsDragging(false);
-        
-        document.body.style.userSelect = '';
-        document.body.style.cursor = '';
-        document.body.style.pointerEvents = '';
-        windowElement.style.pointerEvents = '';
-
-        if (animationFrame) {
-          cancelAnimationFrame(animationFrame);
-          animationFrame = null;
-        }
-      }
-    };
-
-    document.addEventListener('mousemove', handleMouseMove, { passive: false });
-    document.addEventListener('mouseup', handleMouseUp);
-    windowElement.addEventListener('mousedown', handleMouseDown);
-
-    windowElement.style.transform = `translate3d(${dragState.current.currentWindowX}px, ${dragState.current.currentWindowY}px, 0)`;
-    windowElement.style.willChange = 'transform';
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      windowElement.removeEventListener('mousedown', handleMouseDown);
-      
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
-      document.body.style.pointerEvents = '';
-      
-      if (animationFrame) cancelAnimationFrame(animationFrame);
-    };
-  }, [isMaximized, isMobile, onFocus]);
-
-  const handleClose = () => onClose();
-  const handleMinimize = () => setIsMinimized(!isMinimized);
-  
-  const handleMaximize = () => {
-    if (isMobile) return;
-    
-    if (isMaximized) {
-      setIsMaximized(false);
-      dragState.current.currentWindowX = prevPosition.x;
-      dragState.current.currentWindowY = prevPosition.y;
-      windowRef.current.style.transform = `translate3d(${dragState.current.currentWindowX}px, ${dragState.current.currentWindowY}px, 0)`;
-    } else {
-      setPrevPosition({
-        x: dragState.current.currentWindowX,
-        y: dragState.current.currentWindowY
-      });
-      setIsMaximized(true);
-      dragState.current.currentWindowX = 0;
-      dragState.current.currentWindowY = 25;
-      windowRef.current.style.transform = `translate3d(0px, 25px, 0)`;
-    }
-  };
-
-  const mobileStyles = isMobile ? {
-    position: 'fixed',
-    inset: 0,
-    width: '100vw',
-    height: '100vh',
-    transform: 'none',
-    borderRadius: 0,
-  } : {
-    width: isMaximized ? '100vw' : '1100px',
-    height: isMaximized ? 'calc(100vh - 25px)' : '700px',
-  };
-
   return (
-    <div
-      ref={windowRef}
-      className={`${isMobile ? 'fixed inset-0' : 'fixed'} bg-white ${isMobile ? '' : 'rounded-xl shadow-2xl'} overflow-hidden transition-all duration-200 ${
-        isActive ? 'ring-2 ring-blue-500/20' : ''
-      } ${
-        isMinimized ? 'scale-95 opacity-50' : 'scale-100 opacity-100'
-      }`}
-      style={{
-        left: isMobile ? 0 : undefined,
-        top: isMobile ? 0 : undefined,
-        ...mobileStyles,
-        zIndex: zIndex,
-        display: isMinimized ? 'none' : 'block',
-        willChange: isDragging ? 'transform' : 'auto',
-        transition: isDragging ? 'none' : 'all 0.2s'
-      }}
-      onClick={() => {
-        setIsActive(true);
-        if (onFocus) onFocus();
-      }}
-    >
+    <div className="h-full bg-gray-50 flex flex-col overflow-hidden">
       {/* Notification */}
       {notification && (
-        <div className="absolute top-16 right-4 z-50 animate-in slide-in-from-top">
-          <div className={`px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 ${
-            notification.type === 'success' ? 'bg-green-500 text-white' :
-            notification.type === 'error' ? 'bg-red-500 text-white' :
-            'bg-blue-500 text-white'
-          }`}>
-            <Check className="w-5 h-5" />
-            <span className="font-medium">{notification.message}</span>
-          </div>
+        <div className="bg-blue-500 text-white px-6 py-3 flex items-center gap-2 animate-in slide-in-from-top">
+          <Check className="w-5 h-5" />
+          <span className="font-medium">{notification.message}</span>
         </div>
       )}
-
-      {/* Title Bar */}
-      <div
-        className={`title-bar ${isMobile ? 'h-14' : 'h-12'} bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-between px-4 select-none`}
-        style={{ 
-          cursor: isMobile ? 'default' : 'default',
-          WebkitAppRegion: isMobile ? 'no-drag' : 'drag'
-        }}
-      >
-        <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
-          {!isMobile && (
-            <div className="traffic-lights flex items-center gap-2">
-              <button
-                className="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600 transition-colors duration-150 group flex items-center justify-center"
-                onClick={handleClose}
-                title="Close"
-              >
-                <X size={8} className="text-red-800 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </button>
-              <button
-                className="w-3 h-3 bg-yellow-500 rounded-full hover:bg-yellow-600 transition-colors duration-150 group flex items-center justify-center"
-                onClick={handleMinimize}
-                title="Minimize"
-              >
-                <div className="w-2 h-0.5 bg-yellow-800 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              </button>
-              <button
-                className="w-3 h-3 bg-green-500 rounded-full hover:bg-green-600 transition-colors duration-150 group flex items-center justify-center"
-                onClick={handleMaximize}
-                title={isMaximized ? "Restore" : "Maximize"}
-              >
-                <div className="w-1.5 h-1.5 border border-green-800 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 text-white font-semibold text-lg">
-          <Sparkles size={20} />
-          App Store
-        </div>
-
-        <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
-          <button
-            onClick={() => {
-              fetchApps();
-              if (userId) loadConfiguration();
-            }}
-            className="p-2 hover:bg-white/20 rounded transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw size={18} className="text-white" />
-          </button>
-          {isMobile && (
-            <button
-              onClick={handleClose}
-              className="p-2 hover:bg-white/20 rounded transition-colors"
-            >
-              <X size={20} className="text-white" />
-            </button>
-          )}
-        </div>
-      </div>
 
       {/* Unsaved Changes Banner */}
       {hasUnsavedChanges && (
@@ -641,7 +387,7 @@ export default function AppStore({ onClose, onFocus, zIndex = 1000, userId }) {
       )}
 
       {/* Main Content */}
-      <div className="h-full bg-gray-50 flex flex-col" style={{ height: `calc(100% - ${isMobile ? '3.5rem' : '3rem'}${hasUnsavedChanges ? ' - 2.5rem' : ''})` }}>
+      <div className="flex-1 overflow-y-auto">
         {/* Loading State */}
         {loading && (
           <div className="flex-1 flex items-center justify-center">
@@ -677,15 +423,27 @@ export default function AppStore({ onClose, onFocus, zIndex = 1000, userId }) {
           <>
             {/* Search Bar */}
             <div className="bg-white border-b border-gray-200 p-4">
-              <div className="max-w-2xl mx-auto relative">
-                <Search size={20} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search apps..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-gray-100 rounded-xl border-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                />
+              <div className="max-w-2xl mx-auto flex items-center gap-4">
+                <div className="flex-1 relative">
+                  <Search size={20} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search apps..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-gray-100 rounded-xl border-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    fetchApps();
+                    if (userId) loadConfiguration();
+                  }}
+                  className="p-3 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+                  title="Refresh"
+                >
+                  <RefreshCw size={20} className="text-gray-600" />
+                </button>
               </div>
             </div>
 

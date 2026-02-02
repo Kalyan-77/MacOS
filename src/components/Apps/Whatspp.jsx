@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
-import { 
+import {
   X, Phone, Video, Search, Paperclip, Smile, Send,
   MoreVertical, Menu, ChevronLeft, Check, CheckCheck, Mic,
   Camera, Trash2, User, ArrowLeft, ChevronDown, LogOut,
@@ -99,9 +99,8 @@ const DropdownMenu = ({ options, onClose, x, y, anchorRect, anchorSide = 'right'
             option.onClick();
             onClose();
           }}
-          className={`w-full px-4 py-2.5 text-left hover:bg-gray-100 flex items-center gap-3 text-sm transition-colors ${
-            option.danger ? 'text-red-600' : 'text-gray-700'
-          }`}
+          className={`w-full px-4 py-2.5 text-left hover:bg-gray-100 flex items-center gap-3 text-sm transition-colors ${option.danger ? 'text-red-600' : 'text-gray-700'
+            }`}
           disabled={option.disabled}
         >
           {option.icon}
@@ -205,7 +204,7 @@ const ProfilePanel = ({ profile, onClose, onSave, BASE_URL }) => {
           </button>
           <h2 className="text-xl font-medium">Profile</h2>
         </div>
-        
+
         <div className="flex-1 bg-white text-gray-900 p-8 flex flex-col items-center">
           <div className="relative mb-6">
             <div className="w-48 h-48 rounded-full overflow-hidden bg-gray-200 border-4 border-white shadow-lg">
@@ -281,7 +280,7 @@ const ProfilePanel = ({ profile, onClose, onSave, BASE_URL }) => {
   );
 };
 
-export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
+export default function WhatsApp({ userId }) {
   // State management
   const [me, setMe] = useState(null);
   const [users, setUsers] = useState([]);
@@ -302,31 +301,12 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [typingUser, setTypingUser] = useState(null);
 
-  // Window state
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [isMaximized, setIsMaximized] = useState(false);
-  const [isActive, setIsActive] = useState(true);
-  const [isDragging, setIsDragging] = useState(false);
-  const [prevPosition, setPrevPosition] = useState({ x: 200, y: 100 });
-
   // Refs
-  const windowRef = useRef(null);
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
   const currentRoomRef = useRef(null);
   const meRef = useRef(null);
   const typingTimeout = useRef(null);
-
-  // Drag state
-  const dragState = useRef({
-    holdingWindow: false,
-    mouseTouchX: 0,
-    mouseTouchY: 0,
-    startWindowX: 200,
-    startWindowY: 100,
-    currentWindowX: 200,
-    currentWindowY: 100
-  });
 
   // 🔥 HELPER: Format time
   const formatTime = (dateString) => {
@@ -370,7 +350,7 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
     const initSocket = async () => {
       try {
         const { io } = await import('socket.io-client');
-        
+
         socketRef.current = io(BASE_URL, {
           withCredentials: true,
           transports: ['websocket', 'polling'],
@@ -388,7 +368,7 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
 
         socketRef.current.on('receive-message', (msg) => {
           console.log('📩 Message received:', msg);
-          
+
           // Update messages if in the same room
           if (currentRoomRef.current && msg.roomId === currentRoomRef.current) {
             setMessages(prev => {
@@ -601,127 +581,6 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
     }
   }, [dropdown]);
 
-  // Window dragging logic
-  useEffect(() => {
-    if (isMobile) return;
-    
-    const windowElement = windowRef.current;
-    if (!windowElement) return;
-
-    let animationFrame = null;
-
-    const handleMouseMove = (e) => {
-      if (dragState.current.holdingWindow && !isMaximized) {
-        if (animationFrame) cancelAnimationFrame(animationFrame);
-
-        const deltaX = e.clientX - dragState.current.mouseTouchX;
-        const deltaY = e.clientY - dragState.current.mouseTouchY;
-        
-        dragState.current.currentWindowX = dragState.current.startWindowX + deltaX;
-        dragState.current.currentWindowY = dragState.current.startWindowY + deltaY;
-
-        const minX = -windowElement.offsetWidth + 100;
-        const minY = 0;
-        const maxX = window.innerWidth - 100;
-        const maxY = window.innerHeight - 100;
-
-        dragState.current.currentWindowX = Math.max(minX, Math.min(maxX, dragState.current.currentWindowX));
-        dragState.current.currentWindowY = Math.max(minY, Math.min(maxY, dragState.current.currentWindowY));
-
-        animationFrame = requestAnimationFrame(() => {
-          windowElement.style.transform = `translate3d(${dragState.current.currentWindowX}px, ${dragState.current.currentWindowY}px, 0)`;
-        });
-      }
-    };
-
-    const handleMouseDown = (e) => {
-      if (e.button === 0) {
-        const titleBar = e.target.closest('.title-bar');
-        const isButton = e.target.closest('.traffic-lights') || e.target.closest('button');
-        
-        if (titleBar && !isButton) {
-          e.preventDefault();
-          e.stopPropagation();
-
-          if (onFocus) onFocus();
-          
-          dragState.current.holdingWindow = true;
-          setIsActive(true);
-          setIsDragging(true);
-
-          dragState.current.mouseTouchX = e.clientX;
-          dragState.current.mouseTouchY = e.clientY;
-          dragState.current.startWindowX = dragState.current.currentWindowX;
-          dragState.current.startWindowY = dragState.current.currentWindowY;
-
-          document.body.style.userSelect = 'none';
-          document.body.style.cursor = 'default';
-          document.body.style.pointerEvents = 'none';
-          windowElement.style.pointerEvents = 'auto';
-        }
-      }
-    };
-
-    const handleMouseUp = () => {
-      if (dragState.current.holdingWindow) {
-        dragState.current.holdingWindow = false;
-        setIsDragging(false);
-        
-        document.body.style.userSelect = '';
-        document.body.style.cursor = '';
-        document.body.style.pointerEvents = '';
-        windowElement.style.pointerEvents = '';
-
-        if (animationFrame) {
-          cancelAnimationFrame(animationFrame);
-          animationFrame = null;
-        }
-      }
-    };
-
-    document.addEventListener('mousemove', handleMouseMove, { passive: false });
-    document.addEventListener('mouseup', handleMouseUp);
-    windowElement.addEventListener('mousedown', handleMouseDown);
-
-    windowElement.style.transform = `translate3d(${dragState.current.currentWindowX}px, ${dragState.current.currentWindowY}px, 0)`;
-    windowElement.style.willChange = 'transform';
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      windowElement.removeEventListener('mousedown', handleMouseDown);
-      
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
-      document.body.style.pointerEvents = '';
-      
-      if (animationFrame) cancelAnimationFrame(animationFrame);
-    };
-  }, [isMaximized, isMobile, onFocus]);
-
-  const handleClose = () => onClose();
-  const handleMinimize = () => setIsMinimized(!isMinimized);
-  
-  const handleMaximize = () => {
-    if (isMobile) return;
-    
-    if (isMaximized) {
-      setIsMaximized(false);
-      dragState.current.currentWindowX = prevPosition.x;
-      dragState.current.currentWindowY = prevPosition.y;
-      windowRef.current.style.transform = `translate3d(${dragState.current.currentWindowX}px, ${dragState.current.currentWindowY}px, 0)`;
-    } else {
-      setPrevPosition({
-        x: dragState.current.currentWindowX,
-        y: dragState.current.currentWindowY
-      });
-      setIsMaximized(true);
-      dragState.current.currentWindowX = 0;
-      dragState.current.currentWindowY = 25;
-      windowRef.current.style.transform = `translate3d(0px, 25px, 0)`;
-    }
-  };
-
   // Open chat
   const openChat = async (user) => {
     try {
@@ -774,11 +633,11 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
       prevUsers.map(u =>
         u._id === selectedUser._id
           ? {
-              ...u,
-              lastMessage: text,
-              lastMessageTime: tempMessage.createdAt,
-              time: formatTime(tempMessage.createdAt)
-            }
+            ...u,
+            lastMessage: text,
+            lastMessageTime: tempMessage.createdAt,
+            time: formatTime(tempMessage.createdAt)
+          }
           : u
       )
     );
@@ -825,11 +684,11 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
         prevUsers.map(u =>
           u._id === selectedUser._id
             ? {
-                ...u,
-                lastMessage: formatMessagePreview(fileMessage),
-                lastMessageTime: fileMessage.createdAt,
-                time: formatTime(fileMessage.createdAt)
-              }
+              ...u,
+              lastMessage: formatMessagePreview(fileMessage),
+              lastMessageTime: fileMessage.createdAt,
+              time: formatTime(fileMessage.createdAt)
+            }
             : u
         )
       );
@@ -910,34 +769,12 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
     user.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const mobileStyles = isMobile
-    ? {
-        position: 'fixed',
-        inset: 0,
-        width: '100vw',
-        height: '100dvh',
-        transform: 'none',
-        borderRadius: 0
-      }
-    : {
-        width: isMaximized ? '100vw' : '1100px',
-        height: isMaximized ? 'calc(100vh - 25px)' : '700px'
-      };
-
   if (loading) {
     return (
-      <div
-        ref={windowRef}
-        className={`${isMobile ? 'fixed inset-0' : 'fixed'} bg-white ${
-          isMobile ? '' : 'rounded-xl shadow-2xl'
-        } overflow-hidden`}
-        style={{ ...mobileStyles, zIndex }}
-      >
-        <div className="h-full flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#008069] mx-auto mb-4"></div>
-            <div className="text-lg text-gray-600">Loading WhatsApp...</div>
-          </div>
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#008069] mx-auto mb-4"></div>
+          <div className="text-lg text-gray-600">Loading WhatsApp...</div>
         </div>
       </div>
     );
@@ -945,24 +782,10 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
 
   if (!me) {
     return (
-      <div
-        ref={windowRef}
-        className={`${isMobile ? 'fixed inset-0' : 'fixed'} bg-white ${
-          isMobile ? '' : 'rounded-xl shadow-2xl'
-        } overflow-hidden`}
-        style={{ ...mobileStyles, zIndex }}
-      >
-        <div className="h-full flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-xl text-red-600 mb-4">❌ User not logged in</div>
-            <p className="text-gray-600">Please log in to use WhatsApp</p>
-            <button
-              onClick={handleClose}
-              className="mt-4 px-6 py-2 bg-[#008069] text-white rounded-lg hover:bg-[#007a5a] transition-colors"
-            >
-              Close
-            </button>
-          </div>
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-xl text-red-600 mb-4">❌ User not logged in</div>
+          <p className="text-gray-600">Please log in to use WhatsApp</p>
         </div>
       </div>
     );
@@ -971,25 +794,7 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
   const isUserOnline = (userId) => onlineUsers.includes(userId);
 
   return (
-    <div
-      ref={windowRef}
-      className={`${isMobile ? 'fixed inset-0' : 'fixed'} bg-white ${
-        isMobile ? '' : 'rounded-xl shadow-2xl'
-      } overflow-hidden transition-all duration-200 ${
-        isActive ? 'ring-2 ring-[#008069]/20' : ''
-      } ${isMinimized ? 'scale-95 opacity-50' : 'scale-100 opacity-100'}`}
-      style={{
-        ...mobileStyles,
-        zIndex,
-        display: isMinimized ? 'none' : 'block',
-        willChange: isDragging ? 'transform' : 'auto',
-        transition: isDragging ? 'none' : 'all 0.2s'
-      }}
-      onClick={() => {
-        setIsActive(true);
-        if (onFocus) onFocus();
-      }}
-    >
+    <>
       {showProfile && profile && (
         <ProfilePanel
           profile={profile}
@@ -1006,50 +811,9 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
         />
       )}
 
-      {!isMobile && (
-        <div
-          className={`title-bar h-12 bg-gray-100 border-b border-gray-200 flex items-center justify-between px-4 select-none transition-colors duration-200 ${
-            isActive ? 'bg-gray-100' : 'bg-gray-50'
-          }`}
-          style={{ cursor: 'default', WebkitAppRegion: 'drag' }}
-        >
-          <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
-            <div className="traffic-lights flex items-center gap-2">
-              <button
-                className="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600 transition-colors duration-150 group flex items-center justify-center"
-                onClick={handleClose}
-                title="Close"
-              >
-                <X size={8} className="text-red-800 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </button>
-              <button
-                className="w-3 h-3 bg-yellow-500 rounded-full hover:bg-yellow-600 transition-colors duration-150 group flex items-center justify-center"
-                onClick={handleMinimize}
-                title="Minimize"
-              >
-                <div className="w-2 h-0.5 bg-yellow-800 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              </button>
-              <button
-                className="w-3 h-3 bg-green-500 rounded-full hover:bg-green-600 transition-colors duration-150 group flex items-center justify-center"
-                onClick={handleMaximize}
-                title={isMaximized ? "Restore" : "Maximize"}
-              >
-                <div className="w-1.5 h-1.5 border border-green-800 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              </button>
-            </div>
-          </div>
-
-          <div className="absolute left-1/2 transform -translate-x-1/2 pointer-events-none">
-            <div className="text-sm text-gray-700 font-semibold">WhatsApp</div>
-          </div>
-
-          <div className="w-20"></div>
-        </div>
-      )}
-
       <div
         className="bg-[#f0f2f5] flex"
-        style={{ height: isMobile ? '100dvh' : 'calc(100% - 3rem)' }}
+        style={{ height: '100%' }}
       >
         {(!isMobile || !selectedUser) && (
           <div className={`${isMobile ? 'w-full' : 'w-96'} bg-white border-r border-gray-200 flex flex-col`}>
@@ -1099,7 +863,7 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
                   placeholder="Search or start new chat"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg text-sm focus:outline-none"
+                  className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg text-sm focus:outline-none text-black placeholder-gray-500"
                 />
               </div>
             </div>
@@ -1112,9 +876,8 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
                 <div
                   key={user._id}
                   onClick={() => openChat(user)}
-                  className={`flex items-center gap-3 p-3 cursor-pointer transition-colors hover:bg-gray-50 ${
-                    selectedUser?._id === user._id ? 'bg-gray-100' : ''
-                  }`}
+                  className={`flex items-center gap-3 p-3 cursor-pointer transition-colors hover:bg-gray-50 ${selectedUser?._id === user._id ? 'bg-gray-100' : ''
+                    }`}
                 >
                   <div className="relative flex-shrink-0">
                     <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center text-2xl overflow-hidden">
@@ -1134,11 +897,11 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <h3 className="font-semibold text-gray-900 truncate">{user.name}</h3>
+                      <h3 className="font-semibold text-black truncate">{user.name}</h3>
                       <span className="text-xs text-gray-500">{user.time}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className="text-sm text-gray-600 truncate">{user.lastMessage}</p>
+                      <p className="text-sm text-gray-800 truncate">{user.lastMessage}</p>
                       {user.unread > 0 && (
                         <span className="ml-2 bg-[#25d366] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">
                           {user.unread}
@@ -1188,8 +951,8 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
                         {typingUser === selectedUser._id
                           ? 'typing...'
                           : isUserOnline(selectedUser._id)
-                          ? 'online'
-                          : 'offline'}
+                            ? 'online'
+                            : 'offline'}
                       </p>
                     </div>
                   </div>
@@ -1247,9 +1010,8 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
 
                         <div className="relative group">
                           <div
-                            className={`max-w-md px-4 py-2 rounded-lg shadow-sm ${
-                              isMe ? 'bg-[#d9fdd3]' : 'bg-white'
-                            }`}
+                            className={`max-w-md px-4 py-2 rounded-lg shadow-sm ${isMe ? 'bg-[#d9fdd3]' : 'bg-white'
+                              }`}
                           >
                             {msg.deletedForEveryone ? (
                               <p className="text-sm italic text-gray-500">
@@ -1258,7 +1020,7 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
                             ) : (
                               <>
                                 {msg.type === 'text' && (
-                                  <p className="text-sm whitespace-pre-wrap break-words">
+                                  <p className="text-sm whitespace-pre-wrap break-words text-black">
                                     {msg.text}
                                   </p>
                                 )}
@@ -1395,7 +1157,7 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
                         sendMessage();
                       }
                     }}
-                    className="flex-1 px-4 py-2 bg-white rounded-lg text-sm focus:outline-none"
+                    className="flex-1 px-4 py-2 bg-white rounded-lg text-sm focus:outline-none text-black"
                   />
 
                   {text.trim() ? (
@@ -1436,7 +1198,7 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
         <DropdownMenu
           anchorRect={dropdown.anchorRect}
           anchorSide={dropdown.anchorSide}
-          containerRef={windowRef}
+          containerRef={null}
           onClose={() => setDropdown(null)}
           options={[
             {
@@ -1463,7 +1225,7 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
         <DropdownMenu
           anchorRect={dropdown.anchorRect}
           anchorSide={dropdown.anchorSide}
-          containerRef={windowRef}
+          containerRef={null}
           onClose={() => setDropdown(null)}
           options={[
             {
@@ -1495,7 +1257,7 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
         <DropdownMenu
           anchorRect={dropdown.anchorRect}
           anchorSide={dropdown.anchorSide}
-          containerRef={windowRef}
+          containerRef={null}
           onClose={() => setDropdown(null)}
           options={[
             {
@@ -1541,6 +1303,6 @@ export default function WhatsApp({ onClose, zIndex = 1000, onFocus }) {
           ]}
         />
       )}
-    </div>
+    </>
   );
 }

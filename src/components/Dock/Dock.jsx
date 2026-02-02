@@ -1,88 +1,81 @@
 import { useState, useEffect } from "react";
-import finder from "/AppIcons/finder.png";
-import launchpad from "/AppIcons/launchpad.png";
-import preferences from "/AppIcons/preferences.png";
-import contacts from "/AppIcons/contacts.png";
-import notes from "/AppIcons/notes.png";
-import AppStore from "/AppIcons/appstore.png";
-import calculator from "/AppIcons/calculator.png";
-import calender from "/AppIcons/calendar.png";
-import terminal from "/AppIcons/terminal.png";
-import vscode from "/AppIcons/vscode.svg";
-import photos from "/AppIcons/photos.png";
-import message from "/AppIcons/message.png";
-import maps from "/AppIcons/maps.png";
-import mail from "/AppIcons/mail.png";
-import bin from "/AppIcons/bin.png";
-import music from "/AppIcons/music.png";
-import remainder from "/AppIcons/reminders.png";
-import edge from "/AppIcons/edge.png";
-import vlc from "/AppIcons/vlc.png";
-import chess from "/AppIcons/chess.png";
-import TV from "/AppIcons/TV.jpg";
-import figma from "/AppIcons/figma.webp";
-import zoom from "/AppIcons/zoom.webp";
-import teams from "/AppIcons/teams.jpg";
-import whatsapp from "/AppIcons/Whatsapp.png";
-import instagram from "/AppIcons/Instagram.jpg";
-import perplexity from "/AppIcons/perplexity.avif"
+import { useWindows } from "../../context/WindowContext";
 import { BASE_URL } from "../../../config";
+import NotePad from "../Apps/NotePad";
+import Calculator from "../Apps/Calculator";
+import Calendar from "../Apps/Calendar";
+import Terminal from "../Apps/Terminal";
+import FileManager from "../Apps/Finder";
+import VSCode from "../Apps/VSCode";
+import Edge from "../Apps/Edge";
+import Maps from "../Apps/Maps";
+import Photos from "../Apps/Photos";
+import MusicPlayer from "../Apps/Music";
+import VideoPlayer from "../Apps/VideoPlayer";
+import VLCPlayer from "../Apps/VlcPlayer";
+import Trash from "../Apps/Trash";
+import AppStore from "../Apps/AppStore";
+import Whatspp from "../Apps/Whatspp";
+import Perplexity from "../Apps/Perplexity";
 
-export default function Dock({ toggleApp, activeApps = {}, userId }) {
+export default function Dock({ userId }) {
+  const { windows, openApp, focusApp } = useWindows();
   const [hovered, setHovered] = useState(null);
   const [showAllApps, setShowAllApps] = useState(false);
   const [installedApps, setInstalledApps] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // All available apps with their metadata
+  // All available apps with their complete metadata including components
   const allAvailableApps = [
-    { name: "Finder", icon: finder, action: () => toggleApp("filemanager"), key: "filemanager" },
-    { name: "Launchpad", icon: launchpad },
-    { name: "Preferences", icon: preferences },
-    { name: "Contacts", icon: contacts },
-    { name: "Notes", icon: notes, action: () => toggleApp("notepad"), key: "notepad" },
-    { name: "App Store", icon: AppStore, action: () => toggleApp("appstore"), key: "appstore" },
-    { name: "Calculator", icon: calculator, action: () => toggleApp("calculator"), key: "calculator" },
-    { name: "Calendar", icon: calender, action: () => toggleApp("calendar"), key: "calendar" },
-    { name: "Terminal", icon: terminal, action: () => toggleApp("terminal"), key: "terminal" },
-    { name: "VS Code", icon: vscode, action: () => toggleApp("vscode"), key: "vscode" },
-    { name: "Photos", icon: photos, action: () => toggleApp("photos"), key: "photos" },
-    { name: "Messages", icon: message },
-    { name: "Maps", icon: maps, action: () => toggleApp("maps"), key: "maps" },
-    { name: "Mail", icon: mail },
-    { name: "Trash", icon: bin, action: () => toggleApp("trash"), key: "trash" },
-    { name: "Music", icon: music, action: () => toggleApp("musicplayer"), key: "musicplayer" },
-    { name: "Reminders", icon: remainder }, 
-    { name: "Edge", icon: edge, action: () => toggleApp("edge"), key: "edge" },
-    { name: "VLC", icon: vlc, action: () => toggleApp("vlcplayer"), key: "vlcplayer" },
-    { name: "Photoshop", icon: photos },
-    { name: "Illustrator", icon: photos },
-    { name: "Premiere", icon: vlc },
-    { name: "After Effects", icon: calculator },
-    { name: "Figma", icon: figma },
-    { name: "Sketch", icon: photos },
-    { name: "Spotify", icon: music },
-    { name: "Discord", icon: message },
-    { name: "Slack", icon: message },
-    { name: "Zoom", icon: zoom },
-    { name: "Teams", icon: teams },
-    { name: "Chrome", icon: edge },
-    { name: "Chess", icon: chess },
-    { name: "Video Player", icon: TV, action: () => toggleApp("videoplayer"), key: "videoplayer" },
-    { name: "WhatsApp", icon: whatsapp, action: () => toggleApp("whatsapp"), key: "whatsapp" },
-    { name: "Instagram", icon: instagram, action: () => toggleApp("Instagram"), key: "Instagram" },
-    { name: "Perplexity.AI", icon: perplexity, action: () => toggleApp("perplexity"), key: "perplexity" },
+    { id: "filemanager", name: "Finder", icon: "/AppIcons/finder.png", component: FileManager },
+    { id: "launchpad", name: "Launchpad", icon: "/AppIcons/launchpad.png", component: null },
+    { id: "preferences", name: "Preferences", icon: "/AppIcons/preferences.png", component: null },
+    { id: "contacts", name: "Contacts", icon: "/AppIcons/contacts.png", component: null },
+    { id: "notepad", name: "Notes", icon: "/AppIcons/notes.png", component: NotePad },
+    { id: "appstore", name: "App Store", icon: "/AppIcons/appstore.png", component: AppStore },
+    { id: "calculator", name: "Calculator", icon: "/AppIcons/calculator.png", component: Calculator },
+    { id: "calendar", name: "Calendar", icon: "/AppIcons/calendar.png", component: Calendar },
+    { id: "terminal", name: "Terminal", icon: "/AppIcons/terminal.png", component: Terminal },
+    { id: "vscode", name: "VS Code", icon: "/AppIcons/vscode.svg", component: VSCode },
+    { id: "photos", name: "Photos", icon: "/AppIcons/photos.png", component: Photos },
+    { id: "messages", name: "Messages", icon: "/AppIcons/message.png", component: null },
+    { id: "maps", name: "Maps", icon: "/AppIcons/maps.png", component: Maps },
+    { id: "mail", name: "Mail", icon: "/AppIcons/mail.png", component: null },
+    { id: "trash", name: "Trash", icon: "/AppIcons/bin.png", component: Trash },
+    { id: "musicplayer", name: "Music", icon: "/AppIcons/music.png", component: MusicPlayer },
+    { id: "reminders", name: "Reminders", icon: "/AppIcons/reminders.png", component: null },
+    { id: "edge", name: "Edge", icon: "/AppIcons/edge.png", component: Edge },
+    { id: "vlcplayer", name: "VLC", icon: "/AppIcons/vlc.png", component: VLCPlayer },
+    { id: "photoshop", name: "Photoshop", icon: "/AppIcons/photos.png", component: null },
+    { id: "illustrator", name: "Illustrator", icon: "/AppIcons/photos.png", component: null },
+    { id: "premiere", name: "Premiere", icon: "/AppIcons/vlc.png", component: null },
+    { id: "aftereffects", name: "After Effects", icon: "/AppIcons/calculator.png", component: null },
+    { id: "figma", name: "Figma", icon: "/AppIcons/figma.webp", component: null },
+    { id: "sketch", name: "Sketch", icon: "/AppIcons/photos.png", component: null },
+    { id: "spotify", name: "Spotify", icon: "/AppIcons/music.png", component: null },
+    { id: "discord", name: "Discord", icon: "/AppIcons/message.png", component: null },
+    { id: "slack", name: "Slack", icon: "/AppIcons/message.png", component: null },
+    { id: "zoom", name: "Zoom", icon: "/AppIcons/zoom.webp", component: null },
+    { id: "teams", name: "Teams", icon: "/AppIcons/teams.jpg", component: null },
+    { id: "chrome", name: "Chrome", icon: "/AppIcons/edge.png", component: null },
+    { id: "chess", name: "Chess", icon: "/AppIcons/chess.png", component: null },
+    { id: "videoplayer", name: "Video Player", icon: "/AppIcons/TV.jpg", component: VideoPlayer },
+    { id: "whatsapp", name: "WhatsApp", icon: "/AppIcons/Whatsapp.png", component: Whatspp },
+    { id: "instagram", name: "Instagram", icon: "/AppIcons/Instagram.jpg", component: null },
+    { id: "perplexity", name: "Perplexity.AI", icon: "/AppIcons/perplexity.avif", component: Perplexity },
   ];
 
   // Default apps that are always present for all users
-  const defaultApps = ["Finder", "Launchpad", "Preferences", "App Store", "Terminal", "Trash"];
+  const defaultAppIds = ["filemanager", "appstore", "terminal", "trash"];
 
   // Fetch installed apps from database
   useEffect(() => {
     const fetchInstalledApps = async () => {
       // Always include default apps
-      const defaultAppObjects = allAvailableApps.filter(app => defaultApps.includes(app.name));
-      
+      const defaultAppObjects = allAvailableApps.filter(app =>
+        defaultAppIds.includes(app.id)
+      );
+
       if (!userId) {
         console.log('❌ No userId provided, showing only default apps');
         setInstalledApps(defaultAppObjects);
@@ -94,29 +87,43 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
         console.log('🔍 Fetching installed apps for userId:', userId);
         const apiUrl = `${BASE_URL}/config/get/${userId}`;
         console.log('📡 API URL:', apiUrl);
-        
+
         const response = await fetch(apiUrl, {
           credentials: 'include'
         });
-        
+
         console.log('📨 Response status:', response.status);
-        
+
         if (response.ok) {
           const config = await response.json();
           console.log('✅ Config received:', config);
           const dbAppNames = config.desktopApps || [];
           console.log('📱 Desktop apps from DB:', dbAppNames);
-          console.log('📱 Type of desktopApps:', typeof dbAppNames, Array.isArray(dbAppNames));
-          
-          // Filter additional apps from database (excluding default apps)
-          const additionalApps = allAvailableApps.filter(app => {
-            const isInDB = dbAppNames.includes(app.name);
-            const isDefault = defaultApps.includes(app.name);
-            return isInDB && !isDefault;
+
+          // Create a mapping from app name to app object (case-insensitive)
+          const appNameMap = {};
+          allAvailableApps.forEach(app => {
+            const normalizedName = app.name.toLowerCase().replace(/\s+/g, '');
+            appNameMap[normalizedName] = app;
           });
-          
+
+          // Convert DB app names to complete app objects (with component)
+          const dbAppObjects = dbAppNames
+            .map(name => {
+              const normalizedName = name.toLowerCase().replace(/\s+/g, '');
+              return appNameMap[normalizedName];
+            })
+            .filter(Boolean); // Remove undefined entries
+
+          console.log('🔄 Converted app objects:', dbAppObjects.map(a => ({ id: a.id, name: a.name })));
+
+          // Filter additional apps from database (excluding default apps)
+          const additionalApps = dbAppObjects.filter(app =>
+            !defaultAppIds.includes(app.id)
+          );
+
           console.log('✨ Additional apps from DB:', additionalApps.map(a => a.name));
-          
+
           // Combine default apps with additional apps from DB
           const combinedApps = [...defaultAppObjects, ...additionalApps];
           setInstalledApps(combinedApps);
@@ -143,20 +150,11 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
     fetchInstalledApps();
   }, [userId]);
 
-  // Always include Launchpad at the beginning
-  const launchpadApp = allAvailableApps.find(app => app.name === "Launchpad");
-  
-  // Main dock apps (first 15 from installed apps, excluding Launchpad if already present)
-  const filteredApps = installedApps.filter(app => app.name !== "Launchpad");
-  const mainDockApps = launchpadApp 
-    ? [launchpadApp, ...filteredApps.slice(0, 14)]
-    : installedApps.slice(0, 15);
+  // Main dock apps (first 15 from installed apps)
+  const mainDockApps = installedApps.slice(0, 15);
 
-  // Essential apps for mobile (always include Launchpad + 3 more)
-  const mobileFilteredApps = installedApps.filter(app => app.name !== "Launchpad");
-  const essentialApps = launchpadApp
-    ? [launchpadApp, ...mobileFilteredApps.slice(0, 3)]
-    : installedApps.slice(0, 4);
+  // Essential apps for mobile (first 4)
+  const essentialApps = installedApps.slice(0, 4);
 
   const getScale = (index) => {
     if (hovered === null) return 1;
@@ -182,8 +180,26 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
   };
 
   const handleAppClick = (app) => {
-    if (app.action) {
-      app.action();
+    if (!app.component) {
+      if (app.id === 'launchpad' || app.id === 'preferences') {
+        // Special handling if these become standalone apps
+        // For now, these might be used as the trigger locally.
+        return;
+      }
+      alert(`App "${app.name}" is not fully implemented yet.`);
+      return;
+    }
+
+    const running = windows.find(w => w.id === app.id);
+    if (running) {
+      focusApp(app.id);
+    } else {
+      openApp({
+        id: app.id,
+        name: app.name,
+        icon: app.icon,
+        component: app.component
+      });
     }
     setShowAllApps(false);
   };
@@ -193,8 +209,8 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
   };
 
   // Check if an app is active
-  const isAppActive = (appKey) => {
-    return appKey && activeApps[appKey] === true;
+  const isAppActive = (appId) => {
+    return windows.find(w => w.id === appId) !== undefined;
   };
 
   // Show loading state
@@ -231,7 +247,7 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
           display: none;
         }
       `}</style>
-      
+
       {/* Full Screen App Grid Overlay */}
       {showAllApps && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-lg flex flex-col">
@@ -246,12 +262,12 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
               </svg>
             </button>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 hide-scrollbar">
             <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-6 pb-6 min-h-full justify-items-center">
               {installedApps.map((app, idx) => (
                 <div
-                  key={`${app.name}-${idx}`}
+                  key={`${app.id}-${idx}`}
                   className="flex flex-col items-center cursor-pointer group relative"
                   onClick={() => handleAppClick(app)}
                 >
@@ -261,7 +277,7 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
                       alt={app.name}
                       className="w-full h-full rounded-2xl shadow-lg"
                     />
-                    {isAppActive(app.key) && (
+                    {isAppActive(app.id) && (
                       <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2">
                         <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                       </div>
@@ -274,7 +290,7 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
               ))}
             </div>
           </div>
-          
+
           <div className="flex justify-center pb-6 pt-2 flex-shrink-0">
             <div className="w-12 h-1 bg-white/30 rounded-full"></div>
           </div>
@@ -282,7 +298,7 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
       )}
 
       {/* Main Dock */}
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 w-[90%]">
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[90%]">
         {/* Desktop Dock */}
         <div
           className="hidden sm:flex backdrop-blur-2xl bg-white/20 px-2 py-1.5 rounded-2xl items-end justify-center gap-3 shadow-2xl border border-white/30"
@@ -294,10 +310,10 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
         >
           {mainDockApps.map((app, idx) => (
             <div
-              key={idx}
+              key={app.id}
               className="cursor-pointer flex flex-col items-center relative"
               onMouseEnter={() => setHovered(idx)}
-              onClick={() => app.action && app.action()}
+              onClick={() => handleAppClick(app)}
               style={{
                 transform: `scale(${getScale(idx)}) translateY(${getTranslateY(
                   idx
@@ -323,16 +339,16 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
                   height: "56px",
                 }}
               />
-              
-              {isAppActive(app.key) && (
+
+              {isAppActive(app.id) && (
                 <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2">
                   <div className="w-1 h-1 bg-white/90 rounded-full shadow-lg"></div>
                 </div>
               )}
             </div>
           ))}
-          
-          {/* More Apps Button - Shows when there are more than 15 apps */}
+
+          {/* More Apps Button - Show Preferences Icon to open drawer */}
           {installedApps.length > 15 && (
             <div
               className="cursor-pointer flex items-end relative"
@@ -354,25 +370,15 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
                 </div>
               )}
 
-              <div
-                className="rounded-xl bg-gray-600/60 flex items-center justify-center shadow-lg"
+              <img
+                src="/AppIcons/launchpad.png"
+                alt="Launchpad"
+                className="rounded-xl shadow-lg"
                 style={{
                   width: "56px",
                   height: "56px",
                 }}
-              >
-                <div className="grid grid-cols-3 gap-1">
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                </div>
-              </div>
+              />
             </div>
           )}
         </div>
@@ -381,7 +387,7 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
         <div className="sm:hidden backdrop-blur-md bg-white/5 px-4 py-3 rounded-2xl flex items-center justify-center gap-8 shadow-sm">
           {essentialApps.map((app, idx) => (
             <div
-              key={idx}
+              key={app.id}
               className="cursor-pointer flex flex-col items-center group relative"
               onClick={() => handleAppClick(app)}
             >
@@ -391,7 +397,7 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
                   alt={app.name}
                   className="w-full h-full rounded-xl"
                 />
-                {isAppActive(app.key) && (
+                {isAppActive(app.id) && (
                   <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2">
                     <div className="w-1.5 h-1.5 bg-white/90 rounded-full shadow-lg"></div>
                   </div>
@@ -402,23 +408,18 @@ export default function Dock({ toggleApp, activeApps = {}, userId }) {
               </span>
             </div>
           ))}
-          
-          {/* More Apps Button */}
+
+          {/* More Apps Button Mobile */}
           {installedApps.length > 4 && (
             <div
               className="cursor-pointer flex flex-col items-center group"
               onClick={handleMoreAppsClick}
             >
-              <div className="w-12 h-12 mb-1 bg-gray-700/80 rounded-xl flex items-center justify-center group-hover:scale-110 group-active:scale-95 transition-transform duration-200">
-                <div className="grid grid-cols-2 gap-1">
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                </div>
-              </div>
+              <img
+                src="/AppIcons/launchpad.png"
+                alt="Launchpad"
+                className="w-12 h-12 mb-1 rounded-xl shadow-lg group-hover:scale-110 group-active:scale-95 transition-transform duration-200"
+              />
               <span className="text-white text-xs font-medium">
                 More
               </span>

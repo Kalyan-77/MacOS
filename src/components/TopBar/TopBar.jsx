@@ -1,56 +1,26 @@
 import { useState, useEffect } from "react";
 import { Wifi, Search } from "lucide-react";
+import { useWindows } from "../../context/WindowContext";
 import white from "../../assets/BasicIcons/white.png";
 
-// Import app icons
-import AppStore from "/AppIcons/appstore.png";
-import finder from "/AppIcons/finder.png";
-import notes from "/AppIcons/notes.png";
-import calculator from "/AppIcons/calculator.png";
-import calender from "/AppIcons/calendar.png";
-import terminal from "/AppIcons/terminal.png";
-import vscode from "/AppIcons/vscode.svg";
-import photos from "/AppIcons/photos.png";
-import maps from "/AppIcons/maps.png";
-import edge from "/AppIcons/edge.png";
-import vlc from "/AppIcons/vlc.png";
-import TV from "/AppIcons/TV.jpg";
-import bin from "/AppIcons/bin.png";
-import music from "/AppIcons/music.png";
-
-// Map of app keys to their icons and display names
-const appIconMap = {
-  appstore: { icon: AppStore, name: "App Store" },
-  filemanager: { icon: finder, name: "Finder" },
-  notepad: { icon: notes, name: "Notes" },
-  calculator: { icon: calculator, name: "Calculator" },
-  calendar: { icon: calender, name: "Calendar" },
-  terminal: { icon: terminal, name: "Terminal" },
-  vscode: { icon: vscode, name: "VS Code" },
-  photos: { icon: photos, name: "Photos" },
-  maps: { icon: maps, name: "Maps" },
-  edge: { icon: edge, name: "Edge" },
-  vlcplayer: { icon: vlc, name: "VLC" },
-  videoplayer: { icon: TV, name: "Video Player" },
-  trash: { icon: bin, name: "Trash" },
-  musicplayer: { icon: music, name: "Music" },
-};
-
-export default function TopBar({ activeApps = {} }) {
+export default function TopBar() {
+  const { windows, focusApp } = useWindows();
   const [showAppleMenu, setShowAppleMenu] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
   const [showControlCenter, setShowControlCenter] = useState(false);
 
-  // Get currently active apps
-  const getActiveApps = () => {
-    return Object.entries(activeApps)
-      .filter(([key, value]) => value === true)
-      .map(([key]) => ({
-        key,
-        ...appIconMap[key]
-      }))
-      .filter(app => app.icon);
-  };
+  // Close all menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.menu-container')) {
+        setShowAppleMenu(false);
+        setShowFileMenu(false);
+        setShowControlCenter(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const handleAppleClick = () => {
     setShowAppleMenu(!showAppleMenu);
@@ -70,21 +40,6 @@ export default function TopBar({ activeApps = {} }) {
     setShowFileMenu(false);
   };
 
-  // Close all menus when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (!e.target.closest('.menu-container')) {
-        setShowAppleMenu(false);
-        setShowFileMenu(false);
-        setShowControlCenter(false);
-      }
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
-
-  const activeAppsList = getActiveApps();
-
   return (
     <div className="fixed top-0 w-full h-8 backdrop-blur-xl bg-black/20 text-white flex items-center justify-between px-2 sm:px-4 py-5 select-none shadow-lg z-50">
       
@@ -96,17 +51,15 @@ export default function TopBar({ activeApps = {} }) {
             className="h-4 cursor-pointer flex items-center justify-center text-white font-bold text-sm hover:bg-white/20 rounded px-1"
             onClick={handleAppleClick}
           >
-          <img
-            src={white}
-            alt="Apple Logo"
-            className="h-4 cursor-pointer"
-          />
+           <img
+              src={white}
+              alt="Apple Logo"
+              className="h-4 cursor-pointer"
+            /> 
           </div>
 
           {showAppleMenu && (
-            <AppleMenu 
-              onClose={() => setShowAppleMenu(false)}
-            />
+            <AppleMenu onClose={() => setShowAppleMenu(false)} />
           )}
         </div>
 
@@ -120,9 +73,7 @@ export default function TopBar({ activeApps = {} }) {
           </span>
 
           {showFileMenu && (
-            <FileMenu 
-              onClose={() => setShowFileMenu(false)}
-            />
+            <FileMenu onClose={() => setShowFileMenu(false)} />
           )}
         </div>
 
@@ -137,35 +88,32 @@ export default function TopBar({ activeApps = {} }) {
             </span>
           ))}
         </div>
+      </div>
 
-        {/* Active App Icons - REVERSED with flex-row-reverse */}
-        {activeAppsList.length > 0 && (
+      {/* Right Side */}
+      <div className="flex items-center gap-2 sm:gap-4 text-sm flex-shrink-0">
+        {windows.length > 0 && (
           <>
-            <div className="h-4 w-px bg-white/30 flex-shrink-0"></div>
-            <div className="flex flex-row-reverse items-center gap-3 overflow-x-auto scrollbar-hide ml-1 min-w-0">
-              {activeAppsList.map((app) => (
-                <div
-                  key={app.key}
-                  className="flex items-center gap-2 flex-shrink-0 hover:bg-white/10 rounded px-2 py-1 transition-colors"
+            <div className="hidden md:flex items-center gap-2 overflow-x-auto scrollbar-hide max-w-[240px] ml-1 flex-shrink-0">
+              {windows.map((app) => (
+                <button
+                  key={app.id}
+                  onClick={() => focusApp(app.id)}
+                  className={`flex items-center gap-2 flex-shrink-0 rounded transition-colors px-1 py-0.5
+                    ${app.focused ? "bg-white/20" : "hover:bg-white/10"}`}
                   title={app.name}
                 >
                   <img
                     src={app.icon}
                     alt={app.name}
-                    className="h-4 w-4 object-contain rounded"
+                    className="w-5 h-5"
                   />
-                  <span className="text-sm font-medium hidden md:inline whitespace-nowrap">
-                    {app.name}
-                  </span>
-                </div>
+                </button>
               ))}
             </div>
           </>
         )}
-      </div>
-
-      {/* Right Side */}
-      <div className="flex items-center gap-2 sm:gap-4 text-sm flex-shrink-0">
+        <div className="h-6 w-px bg-white/30 flex-shrink-0 hidden md:block"></div>
         {/* Battery Status - Hidden on small screens */}
         <div className="hidden md:block">
           <BatteryStatus />
@@ -196,9 +144,7 @@ export default function TopBar({ activeApps = {} }) {
           </div>
 
           {showControlCenter && (
-            <ControlCenter 
-              onClose={() => setShowControlCenter(false)}
-            />
+            <ControlCenter onClose={() => setShowControlCenter(false)} />
           )}
         </div>
 
@@ -636,10 +582,9 @@ function DateTime() {
       onMouseEnter={() => setShowTimeTooltip(true)}
       onMouseLeave={() => setShowTimeTooltip(false)}
     >
-      {/* Show date above time on mobile, side by side on larger screens */}
       <span className="hidden sm:inline">{formatDate(time)}</span>
       <span>{formatTime(time)}</span>
-      <span className="sm:hidden text-xs opacity-75">{formatDate(time).split(' ')[4]}</span>
+      <span className="sm:hidden text-xs opacity-75">{formatDate(time).split(' ')[0]}</span>
 
       {/* Date/Time Tooltip */}
       {showTimeTooltip && (

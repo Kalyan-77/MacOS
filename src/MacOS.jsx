@@ -1,36 +1,24 @@
 import TopBar from "./components/TopBar/TopBar";
 import Dock from "./components/Dock/Dock";
-import wallpaper from "./assets/Wallpaper/img1.jpg"; 
+import MacWindow from "./components/MacWindow";
+import { WindowProvider, useWindows } from "./context/WindowContext";
+import wallpaper from "./assets/Wallpaper/img1.jpg";
 import folderIcon from "./assets/BasicIcons/folder.png";
 import fileIcon from "./assets/BasicIcons/file.png";
 import NotePad from "./components/Apps/NotePad";
-import Calculator from "./components/Apps/Calculator";
-import Calendar from "./components/Apps/Calendar";
 import { useState, useEffect, useRef } from "react";
-import VSCode from "./components/Apps/VSCode";
-import Maps from "./components/Apps/Maps";
-import Edge from "./components/Apps/Edge";
-import VLCPlayer from "./components/Apps/VlcPlayer";
 import Terminal from "./components/Apps/Terminal";
-import TerminalTab from "./components/Apps/Terminal";
 import FileManager from "./components/Apps/Finder";
 import { BASE_URL } from "../config";
-import Photos from "./components/Apps/Photos";
-import VideoPlayer from "./components/Apps/VideoPlayer";
-import Trash from "./components/Apps/Trash";
-import AppStore from "./components/Apps/AppStore";
-import MusicPlayer from "./components/Apps/Music";
-import Whatspp from "./components/Apps/Whatspp";
-import Perplexity from "./components/Apps/Perplexity";
 
-// Desktop Item Component (Folder or File)
+// Desktop Item Component
 const DesktopItem = ({ item, onDoubleClick, onRightClick, isSelected, onClick, onMenuClick, position, onPositionChange }) => {
   const icon = item.type === "folder" ? folderIcon : fileIcon;
   const [showMenu, setShowMenu] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const menuRef = useRef(null);
   const itemRef = useRef(null);
-  
+
   const dragState = useRef({
     isDragging: false,
     startX: 0,
@@ -65,7 +53,7 @@ const DesktopItem = ({ item, onDoubleClick, onRightClick, isSelected, onClick, o
 
         const deltaX = e.clientX - dragState.current.startX;
         const deltaY = e.clientY - dragState.current.startY;
-        
+
         dragState.current.currentX = dragState.current.startPosX + deltaX;
         dragState.current.currentY = dragState.current.startPosY + deltaY;
 
@@ -87,7 +75,7 @@ const DesktopItem = ({ item, onDoubleClick, onRightClick, isSelected, onClick, o
       if (e.button === 0 && !e.target.closest('button') && !e.target.closest('.dropdown-menu')) {
         e.preventDefault();
         e.stopPropagation();
-        
+
         dragState.current.isDragging = true;
         setIsDragging(true);
         onClick(item);
@@ -102,11 +90,11 @@ const DesktopItem = ({ item, onDoubleClick, onRightClick, isSelected, onClick, o
       }
     };
 
-    const handleMouseUp = (e) => {
+    const handleMouseUp = () => {
       if (dragState.current.isDragging) {
         dragState.current.isDragging = false;
         setIsDragging(false);
-        
+
         document.body.style.userSelect = '';
         document.body.style.cursor = '';
 
@@ -135,10 +123,10 @@ const DesktopItem = ({ item, onDoubleClick, onRightClick, isSelected, onClick, o
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
       itemElement.removeEventListener('mousedown', handleMouseDown);
-      
+
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
-      
+
       if (animationFrame) {
         cancelAnimationFrame(animationFrame);
       }
@@ -160,11 +148,11 @@ const DesktopItem = ({ item, onDoubleClick, onRightClick, isSelected, onClick, o
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showMenu]);
-  
+
   return (
     <div
       ref={itemRef}
-      className={`flex flex-col items-center justify-center group w-20 p-2 rounded absolute `}
+      className="flex flex-col items-center justify-center group w-20 p-2 rounded absolute"
       onDoubleClick={() => onDoubleClick(item)}
       onContextMenu={(e) => onRightClick(e, item)}
       style={{
@@ -182,7 +170,7 @@ const DesktopItem = ({ item, onDoubleClick, onRightClick, isSelected, onClick, o
       </button>
 
       {showMenu && (
-        <div 
+        <div
           ref={menuRef}
           className="dropdown-menu absolute top-8 right-0 bg-gray-800 bg-opacity-95 backdrop-blur-md rounded-lg shadow-2xl py-1 min-w-40 z-50 border border-gray-600"
         >
@@ -242,9 +230,9 @@ const DesktopItem = ({ item, onDoubleClick, onRightClick, isSelected, onClick, o
       )}
 
       <div className="relative">
-        <img 
-          src={icon} 
-          alt={item.type} 
+        <img
+          src={icon}
+          alt={item.type}
           className="w-16 h-16 group-hover:scale-110 transition-transform pointer-events-none"
           style={{ background: 'transparent' }}
         />
@@ -263,36 +251,36 @@ const DesktopItem = ({ item, onDoubleClick, onRightClick, isSelected, onClick, o
 
 // Context Menu Component
 const ContextMenu = ({ x, y, onClose, onAction, selectedItem }) => {
-  const menuItems = selectedItem 
+  const menuItems = selectedItem
     ? [
-        { label: "Open", icon: "📂", action: "open" },
-        { label: "Rename", icon: "✏️", action: "rename" },
-        { label: "---", divider: true },
-        { label: "Copy", icon: "📋", action: "copy" },
-        { label: "Duplicate", icon: "📑", action: "duplicate" },
-        { label: "---", divider: true },
-        { label: "Move to Trash", icon: "🗑️", action: "trash" },
-        { label: "Delete Permanently", icon: "⚠️", action: "deletePermanent", danger: true },
-        { label: "---", divider: true },
-        { label: "Get Info", icon: "ℹ️", action: "getInfo" }
-      ]
+      { label: "Open", icon: "📂", action: "open" },
+      { label: "Rename", icon: "✏️", action: "rename" },
+      { label: "---", divider: true },
+      { label: "Copy", icon: "📋", action: "copy" },
+      { label: "Duplicate", icon: "📑", action: "duplicate" },
+      { label: "---", divider: true },
+      { label: "Move to Trash", icon: "🗑️", action: "trash" },
+      { label: "Delete Permanently", icon: "⚠️", action: "deletePermanent", danger: true },
+      { label: "---", divider: true },
+      { label: "Get Info", icon: "ℹ️", action: "getInfo" }
+    ]
     : [
-        { label: "New Folder", icon: "📁", action: "newFolder" },
-        { label: "New File", icon: "📄", action: "newFile" },
-        { label: "---", divider: true },
-        { label: "Paste", icon: "📋", action: "paste" },
-        { label: "---", divider: true },
-        { label: "Refresh", icon: "🔄", action: "refresh" },
-        { label: "Sort By Name", icon: "↕️", action: "sort" },
-        { label: "---", divider: true },
-        { label: "Terminal", icon: "💻", action: "terminal" },
-        { label: "---", divider: true },
-        { label: "Change Wallpaper", icon: "🖼️", action: "changeWallpaper" },
-        { label: "Display Settings", icon: "⚙️", action: "displaySettings" }
-      ];
+      { label: "New Folder", icon: "📁", action: "newFolder" },
+      { label: "New File", icon: "📄", action: "newFile" },
+      { label: "---", divider: true },
+      { label: "Paste", icon: "📋", action: "paste" },
+      { label: "---", divider: true },
+      { label: "Refresh", icon: "🔄", action: "refresh" },
+      { label: "Sort By Name", icon: "↕️", action: "sort" },
+      { label: "---", divider: true },
+      { label: "Terminal", icon: "💻", action: "terminal" },
+      { label: "---", divider: true },
+      { label: "Change Wallpaper", icon: "🖼️", action: "changeWallpaper" },
+      { label: "Display Settings", icon: "⚙️", action: "displaySettings" }
+    ];
 
   return (
-    <div 
+    <div
       className="fixed bg-gray-800 bg-opacity-95 backdrop-blur-md rounded-lg shadow-2xl py-2 min-w-48 z-50 border border-gray-600"
       style={{ left: x, top: y }}
     >
@@ -300,13 +288,12 @@ const ContextMenu = ({ x, y, onClose, onAction, selectedItem }) => {
         if (item.divider) {
           return <div key={index} className="border-t border-gray-600 my-1"></div>;
         }
-        
+
         return (
           <button
             key={index}
-            className={`w-full px-4 py-2 text-left text-white hover:bg-blue-600 flex items-center space-x-3 transition-colors ${
-              item.danger ? 'hover:bg-red-600' : ''
-            }`}
+            className={`w-full px-4 py-2 text-left text-white hover:bg-blue-600 flex items-center space-x-3 transition-colors ${item.danger ? 'hover:bg-red-600' : ''
+              }`}
             onClick={() => {
               onAction(item.action);
               onClose();
@@ -321,7 +308,7 @@ const ContextMenu = ({ x, y, onClose, onAction, selectedItem }) => {
   );
 };
 
-// Create Item Modal (Folder or File)
+// Create Item Modal
 const CreateItemModal = ({ onClose, onCreate, type = "folder" }) => {
   const [itemName, setItemName] = useState(type === "folder" ? "Untitled Folder" : "Untitled.txt");
   const inputRef = useRef(null);
@@ -441,9 +428,8 @@ const ConfirmDialog = ({ message, onConfirm, onCancel, danger = false }) => {
           </button>
           <button
             onClick={onConfirm}
-            className={`px-4 py-2 text-white rounded transition-colors ${
-              danger ? 'bg-red-600 hover:bg-red-500' : 'bg-blue-600 hover:bg-blue-500'
-            }`}
+            className={`px-4 py-2 text-white rounded transition-colors ${danger ? 'bg-red-600 hover:bg-red-500' : 'bg-blue-600 hover:bg-blue-500'
+              }`}
           >
             {danger ? 'Delete' : 'Confirm'}
           </button>
@@ -453,29 +439,9 @@ const ConfirmDialog = ({ message, onConfirm, onCancel, danger = false }) => {
   );
 };
 
-export default function MacOS() {
-  const [openApps, setOpenApps] = useState({
-    notepad: false,
-    calculator: false,
-    calendar: false,
-    vscode: false,
-    maps: false,
-    edge: false,
-    vlcplayer: false,
-    terminal: false,
-    filemanager: false,
-    photos: false,
-    videoplayer: false,
-    trash: false,
-    appstore: false,
-    musicplayer: false,
-    whatsapp: false,
-    perplexity: false,
-  });
-
-  const [appZIndices, setAppZIndices] = useState({});
-  const [highestZIndex, setHighestZIndex] = useState(1000);
-
+// Desktop Component
+function Desktop() {
+  const { windows, openWindow, closeWindow } = useWindows();
   const [desktopItems, setDesktopItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, selectedItem: null });
@@ -490,15 +456,12 @@ export default function MacOS() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userName, setUserName] = useState("");
   const [itemPositions, setItemPositions] = useState({});
-  const [fileToOpen, setFileToOpen] = useState(null);
   const contextMenuRef = useRef(null);
 
-  // API base URLs
   const API_BASE = `${BASE_URL}/finder`;
   const AUTH_API = `${BASE_URL}/auth`;
   const DESKTOP_PARENT_ID = "desktop";
 
-  // Check authentication
   useEffect(() => {
     checkAuthentication();
   }, []);
@@ -509,14 +472,12 @@ export default function MacOS() {
         credentials: 'include'
       });
       const data = await response.json();
-      
+
       if (data.loggedIn && data.user) {
         setUserId(data.user._id);
         setUserName(data.user.name);
         setIsAuthenticated(true);
         fetchDesktopItems(data.user._id);
-      } else {
-        console.log("User not authenticated");
       }
     } catch (error) {
       console.error("Error checking authentication:", error);
@@ -524,12 +485,8 @@ export default function MacOS() {
     }
   };
 
-  // Fetch desktop items for the current user
   const fetchDesktopItems = async (currentUserId = userId) => {
-    if (!currentUserId) {
-      console.log("No user ID available, skipping fetch");
-      return;
-    }
+    if (!currentUserId) return;
 
     try {
       const response = await fetch(`${API_BASE}/user/${currentUserId}/items`, {
@@ -541,8 +498,6 @@ export default function MacOS() {
       if (response.ok) {
         const desktopData = data.items.filter(item => item.parentId === "desktop");
         setDesktopItems(desktopData || []);
-      } else {
-        console.error("Failed to fetch items:", data.message);
       }
     } catch (error) {
       console.error("Error fetching desktop items:", error);
@@ -554,10 +509,10 @@ export default function MacOS() {
       alert("Please log in to create items");
       return;
     }
-    
+
     try {
       let endpoint, body;
-      
+
       if (type === "folder") {
         endpoint = `${API_BASE}/folders`;
         body = {
@@ -584,38 +539,26 @@ export default function MacOS() {
         body: JSON.stringify(body)
       });
 
-      const data = await response.json();
-
       if (response.ok) {
         fetchDesktopItems();
         setShowCreateModal(false);
-      } else {
-        alert(data.error || data.message || `Failed to create ${type}`);
       }
     } catch (error) {
       console.error(`Error creating ${type}:`, error);
-      alert(`Failed to create ${type}`);
     }
   };
 
   const moveToTrash = async (itemId) => {
-    if (!isAuthenticated) {
-      alert("Please log in to move items to trash");
-      return;
-    }
+    if (!isAuthenticated) return;
 
     try {
       const item = desktopItems.find(i => i._id === itemId);
-      
-      if (!item) {
-        alert("Item not found");
-        return;
-      }
+      if (!item) return;
 
-      const endpoint = item.type === "folder" 
-        ? `${API_BASE}/trash/folder/${itemId}` 
+      const endpoint = item.type === "folder"
+        ? `${API_BASE}/trash/folder/${itemId}`
         : `${API_BASE}/trash/file/${itemId}`;
-      
+
       const response = await fetch(endpoint, {
         method: "PUT",
         credentials: 'include'
@@ -624,28 +567,21 @@ export default function MacOS() {
       if (response.ok) {
         fetchDesktopItems();
         setSelectedItem(null);
-      } else {
-        const data = await response.json();
-        alert(data.error || "Failed to move to trash");
       }
     } catch (error) {
       console.error("Error moving to trash:", error);
-      alert("Failed to move to trash");
     }
   };
 
   const deletePermanently = async (itemId) => {
-    if (!isAuthenticated) {
-      alert("Please log in to delete items");
-      return;
-    }
+    if (!isAuthenticated) return;
 
     try {
       const item = desktopItems.find(i => i._id === itemId);
-      const endpoint = item.type === "folder" 
-        ? `${API_BASE}/delete/folder/${itemId}` 
-        : `${API_BASE}/delete/file/${itemId}`;
-      
+      const endpoint = item.type === "folder"
+        ? `${API_BASE}/delete/folder/${itemId}`
+        : `${API_BASE}/delete/${itemId}`;
+
       const response = await fetch(endpoint, {
         method: "DELETE",
         credentials: 'include'
@@ -655,21 +591,14 @@ export default function MacOS() {
         fetchDesktopItems();
         setSelectedItem(null);
         setShowConfirmDialog(false);
-      } else {
-        const data = await response.json();
-        alert(data.error || "Failed to delete item");
       }
     } catch (error) {
       console.error("Error deleting item:", error);
-      alert("Failed to delete item");
     }
   };
 
   const renameItem = async (itemId, newName) => {
-    if (!isAuthenticated) {
-      alert("Please log in to rename items");
-      return;
-    }
+    if (!isAuthenticated) return;
 
     try {
       const response = await fetch(`${API_BASE}/rename/${itemId}`, {
@@ -681,26 +610,18 @@ export default function MacOS() {
         body: JSON.stringify({ newName })
       });
 
-      const data = await response.json();
-
       if (response.ok) {
         fetchDesktopItems();
         setShowRenameModal(false);
         setItemToRename(null);
-      } else {
-        alert(data.error || "Failed to rename item");
       }
     } catch (error) {
       console.error("Error renaming item:", error);
-      alert("Failed to rename item");
     }
   };
 
   const duplicateItem = async (itemId) => {
-    if (!isAuthenticated) {
-      alert("Please log in to duplicate items");
-      return;
-    }
+    if (!isAuthenticated) return;
 
     try {
       const response = await fetch(`${API_BASE}/duplicate/${itemId}`, {
@@ -710,13 +631,9 @@ export default function MacOS() {
 
       if (response.ok) {
         fetchDesktopItems();
-      } else {
-        const data = await response.json();
-        alert(data.error || "Failed to duplicate item");
       }
     } catch (error) {
       console.error("Error duplicating item:", error);
-      alert("Failed to duplicate item");
     }
   };
 
@@ -725,10 +642,7 @@ export default function MacOS() {
   };
 
   const pasteItem = async () => {
-    if (!clipboard || !isAuthenticated) {
-      return;
-    }
-
+    if (!clipboard || !isAuthenticated) return;
     await duplicateItem(clipboard._id);
     setClipboard(null);
   };
@@ -752,40 +666,6 @@ export default function MacOS() {
       y: 20 + (row * 100)
     };
   };
-
-const toggleApp = (appName) => {
-  setOpenApps((prev) => {
-    const newState = {
-      ...prev,
-      [appName]: !prev[appName],
-    };
-
-    // If opening the app (not closing), atomically bump highestZIndex and assign
-    if (!prev[appName]) {
-      setHighestZIndex((h) => {
-        const newZ = h + 1;
-        setAppZIndices((prevIndices) => ({
-          ...prevIndices,
-          [appName]: newZ,
-        }));
-        return newZ;
-      });
-    }
-
-    return newState;
-  });
-};
-
-const bringToFront = (appName) => {
-  setHighestZIndex((h) => {
-    const newZ = h + 1;
-    setAppZIndices((prevIndices) => ({
-      ...prevIndices,
-      [appName]: newZ,
-    }));
-    return newZ;
-  });
-};
 
   const handleItemMenuClick = (item, action) => {
     switch (action) {
@@ -820,60 +700,38 @@ const bringToFront = (appName) => {
   const handleRightClick = (e, item = null) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    // Don't show context menu if clicking inside an app window (unless it's an item)
-    if (!item && e.target.closest('.app-window')) {
-      return;
-    }
-    
-    // Don't show context menu if clicking on a desktop item's menu or buttons
-    if (!item && (e.target.closest('.dropdown-menu') || e.target.closest('button'))) {
-      return;
-    }
-    
+
+    if (!item && e.target.closest('.app-window')) return;
+    if (!item && (e.target.closest('.dropdown-menu') || e.target.closest('button'))) return;
+
     const menuWidth = 200;
     const menuHeight = 400;
     let x = e.clientX;
     let y = e.clientY;
-    
-    if (x + menuWidth > window.innerWidth) {
-      x = window.innerWidth - menuWidth - 10;
-    }
-    
-    if (y + menuHeight > window.innerHeight) {
-      y = window.innerHeight - menuHeight - 10;
-    }
-    
+
+    if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 10;
+    if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 10;
+
     setContextMenu({ visible: true, x, y, selectedItem: item });
-    if (item) {
-      setSelectedItem(item);
-    }
+    if (item) setSelectedItem(item);
   };
 
   const handleContextMenuAction = (action) => {
     const item = contextMenu.selectedItem;
-    
+
     switch (action) {
       case 'newFolder':
-        if (!isAuthenticated) {
-          alert("Please log in to create folders");
-          return;
-        }
+        if (!isAuthenticated) return;
         setCreateType("folder");
         setShowCreateModal(true);
         break;
       case 'newFile':
-        if (!isAuthenticated) {
-          alert("Please log in to create files");
-          return;
-        }
+        if (!isAuthenticated) return;
         setCreateType("file");
         setShowCreateModal(true);
         break;
       case 'open':
-        if (item) {
-          handleItemDoubleClick(item);
-        }
+        if (item) handleItemDoubleClick(item);
         break;
       case 'rename':
         if (item) {
@@ -882,22 +740,16 @@ const bringToFront = (appName) => {
         }
         break;
       case 'copy':
-        if (item) {
-          copyItem(item);
-        }
+        if (item) copyItem(item);
         break;
       case 'paste':
         pasteItem();
         break;
       case 'duplicate':
-        if (item) {
-          duplicateItem(item._id);
-        }
+        if (item) duplicateItem(item._id);
         break;
       case 'trash':
-        if (item) {
-          moveToTrash(item._id);
-        }
+        if (item) moveToTrash(item._id);
         break;
       case 'deletePermanent':
         if (item) {
@@ -912,20 +764,12 @@ const bringToFront = (appName) => {
         setDesktopItems(prev => [...prev].sort((a, b) => a.name.localeCompare(b.name)));
         break;
       case 'terminal':
-        toggleApp("terminal");
+        openWindow("terminal", "Terminal", Terminal, {});
         break;
       case 'getInfo':
         if (item) {
           alert(`Name: ${item.name}\nType: ${item.type}\nID: ${item._id}\nCreated: ${new Date(item.createdAt).toLocaleString()}\nTrashed: ${item.isTrashed ? 'Yes' : 'No'}`);
-        } else {
-          alert(`Desktop Info\nUser: ${userName || 'Guest'}\nAuthenticated: ${isAuthenticated ? 'Yes' : 'No'}\nItems: ${desktopItems.length}`);
         }
-        break;
-      case 'changeWallpaper':
-        alert('Wallpaper settings opened!');
-        break;
-      case 'displaySettings':
-        alert('Display settings opened!');
         break;
       default:
         break;
@@ -937,12 +781,84 @@ const bringToFront = (appName) => {
   };
 
   const handleItemDoubleClick = (item) => {
+    console.log('Desktop item double-clicked:', item);
+
     if (item.type === "folder") {
-      toggleApp("filemanager");
+      // Open FileManager with the folder information
+      const windowId = "filemanager-" + item._id;
+
+      console.log('Opening FileManager for folder:', {
+        windowId,
+        itemName: item.name,
+        itemId: item._id
+      });
+
+      // Close existing FileManager window if it exists
+      const existingWindow = windows.find(w => w.id === windowId);
+      if (existingWindow) {
+        console.log('Closing existing window:', windowId);
+        closeWindow(windowId);
+        // Wait a bit before opening new window
+        setTimeout(() => {
+          openWindow(
+            windowId,
+            "File Manager - " + item.name,
+            FileManager,
+            {
+              userId: userId,
+              initialFolder: item._id,
+              initialPath: ['Desktop', item.name],
+              parentFolder: 'desktop'
+            },
+            folderIcon // 🔥 Pass the folder icon
+          );
+        }, 100);
+      } else {
+        openWindow(
+          windowId,
+          "File Manager - " + item.name,
+          FileManager,
+          {
+            userId: userId,
+            initialFolder: item._id,
+            initialPath: ['Desktop', item.name],
+            parentFolder: 'desktop'
+          },
+          folderIcon // 🔥 Pass the folder icon
+        );
+      }
     } else {
       // Open file in NotePad
-      setFileToOpen(item);
-      setOpenApps(prev => ({ ...prev, notepad: true }));
+      const windowId = "notepad-" + item._id;
+
+      // Close existing NotePad window for this file if it exists
+      const existingWindow = windows.find(w => w.id === windowId);
+      if (existingWindow) {
+        closeWindow(windowId);
+        setTimeout(() => {
+          openWindow(
+            windowId,
+            "NotePad - " + item.name,
+            NotePad,
+            {
+              fileToOpen: item,
+              userId: userId
+            },
+            fileIcon // 🔥 Pass the file icon
+          );
+        }, 100);
+      } else {
+        openWindow(
+          windowId,
+          "NotePad - " + item.name,
+          NotePad,
+          {
+            fileToOpen: item,
+            userId: userId
+          },
+          fileIcon // 🔥 Pass the file icon
+        );
+      }
     }
   };
 
@@ -965,22 +881,14 @@ const bringToFront = (appName) => {
 
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
-        if (contextMenu.visible) {
-          closeContextMenu();
-        }
-        if (showCreateModal) {
-          setShowCreateModal(false);
-        }
+        if (contextMenu.visible) closeContextMenu();
+        if (showCreateModal) setShowCreateModal(false);
         if (showRenameModal) {
           setShowRenameModal(false);
           setItemToRename(null);
         }
-        if (showConfirmDialog) {
-          setShowConfirmDialog(false);
-        }
-        if (selectedItem) {
-          setSelectedItem(null);
-        }
+        if (showConfirmDialog) setShowConfirmDialog(false);
+        if (selectedItem) setSelectedItem(null);
       }
     };
 
@@ -1022,7 +930,7 @@ const bringToFront = (appName) => {
       onContextMenu={handleRightClick}
       onClick={handleDesktopClick}
     >
-      <TopBar activeApps={openApps} />
+      <TopBar />
 
       <div className="flex-1 relative">
         <div className="absolute inset-0">
@@ -1054,159 +962,9 @@ const bringToFront = (appName) => {
           </div>
         )}
 
-        // Update these app renderings in your MacOS component:
-
-{openApps.notepad && (
-  <NotePad 
-    onClose={() => {
-      toggleApp("notepad");
-      setFileToOpen(null);
-    }} 
-    fileToOpen={fileToOpen} 
-    userId={userId}
-    zIndex={appZIndices.notepad || (openApps.notepad ? highestZIndex + 1 : 1000)}
-    onFocus={() => bringToFront("notepad")}
-  />
-)}
-
-{openApps.calculator && (
-  <Calculator 
-    onClose={() => toggleApp("calculator")}
-    zIndex={appZIndices.calculator || (openApps.calculator ? highestZIndex + 1 : 1000)}
-    onFocus={() => bringToFront("calculator")}
-  />
-)}
-
-{openApps.calendar && (
-  <Calendar 
-    onClose={() => toggleApp("calendar")}
-    zIndex={appZIndices.calendar || (openApps.calendar ? highestZIndex + 1 : 1000)}
-    onFocus={() => bringToFront("calendar")}
-  />
-)}
-
-{openApps.vscode && (
-  <VSCode 
-    onClose={() => toggleApp("vscode")}
-    zIndex={appZIndices.vscode || (openApps.vscode ? highestZIndex + 1 : 1000)}
-    onFocus={() => bringToFront("vscode")}
-  />
-)}
-
-{openApps.maps && (
-  <Maps 
-    onClose={() => toggleApp("maps")} 
-    zIndex={appZIndices.maps || (openApps.maps ? highestZIndex + 1 : 1000)}
-    onFocus={() => bringToFront("maps")}
-  />
-)}
-
-{openApps.edge && (
-  <Edge
-    onClose={() => toggleApp("edge")}
-    zIndex={appZIndices.edge || (openApps.edge ? highestZIndex + 1 : 1000)}
-    onFocus={() => bringToFront("edge")}
-  />
-)}
-
-{openApps.vlcplayer && (
-  <VLCPlayer 
-    onClose={() => toggleApp("vlcplayer")}
-    zIndex={appZIndices.vlcplayer || (openApps.vlcplayer ? highestZIndex + 1 : 1000)}
-    onFocus={() => bringToFront("vlcplayer")}
-  />
-)}
-
-{openApps.terminal && (
-  <TerminalTab 
-    onClose={() => toggleApp("terminal")}
-    zIndex={appZIndices.terminal || (openApps.terminal ? highestZIndex + 1 : 1000)}
-    onFocus={() => bringToFront("terminal")}
-  />
-)}
-
-{openApps.filemanager && (
-  <FileManager 
-    onClose={() => toggleApp("filemanager")} 
-    zIndex={appZIndices.filemanager || (openApps.filemanager ? highestZIndex + 1 : 1000)}
-    onFocus={() => bringToFront("filemanager")}
-    toggleApp={toggleApp}
-    setFileToOpen={setFileToOpen}
-    userId={userId}
-  />
-)}
-
-{openApps.photos && (
-  <Photos 
-    onClose={() => {
-      toggleApp("photos");
-      setFileToOpen(null);
-    }} 
-    fileToOpen={fileToOpen} 
-    userId={userId}
-    zIndex={appZIndices.photos || (openApps.photos ? highestZIndex + 1 : 1000)}
-    onFocus={() => bringToFront("photos")}
-  />
-)}
-
-{openApps.videoplayer && (
-  <VideoPlayer 
-    onClose={() => {
-      toggleApp("videoplayer");
-      setFileToOpen(null);
-    }} 
-    fileToOpen={fileToOpen} 
-    userId={userId}
-    zIndex={appZIndices.videoplayer || (openApps.videoplayer ? highestZIndex + 1 : 1000)}
-    onFocus={() => bringToFront("videoplayer")}
-  />
-)}
-
-{openApps.trash && (
-  <Trash 
-    onClose={() => toggleApp("trash")}
-    zIndex={appZIndices.trash || (openApps.trash ? highestZIndex + 1 : 1000)}
-    onFocus={() => bringToFront("trash")}
-  />
-)}
-
-{openApps.appstore && (
-  <AppStore 
-    onClose={() => toggleApp("appstore")}
-    zIndex={appZIndices.appstore || (openApps.appstore ? highestZIndex + 1 : 1000)}
-    onFocus={() => bringToFront("appstore")}
-    userId={userId}
-  />
-)}
-
-{openApps.musicplayer && (
-  <MusicPlayer 
-    onClose={() => {
-      toggleApp("musicplayer");
-      setFileToOpen(null);
-    }} 
-    fileToOpen={fileToOpen} 
-    userId={userId}
-    zIndex={appZIndices.musicplayer || (openApps.musicplayer ? highestZIndex + 1 : 1000)}
-    onFocus={() => bringToFront("musicplayer")}
-  />
-)}
-{openApps.whatsapp && (
-  <Whatspp 
-    onClose={() => toggleApp("whatsapp")}
-    zIndex={appZIndices.whatsapp || (openApps.whatsapp ? highestZIndex + 1 : 1000)}
-    onFocus={() => bringToFront("whatsapp")}
-  />
-)}
-{openApps.perplexity && (
-  <Perplexity 
-    onClose={() => toggleApp("perplexity")}
-    userId={userId}
-    zIndex={appZIndices.perplexity || (openApps.perplexity ? highestZIndex + 1 : 1000)}
-    onFocus={() => bringToFront("perplexity")}
-  />
-)}
-        
+        {windows.map(window => (
+          <MacWindow key={window.id} app={window} userId={userId} />
+        ))}
       </div>
 
       {contextMenu.visible && (
@@ -1244,9 +1002,7 @@ const bringToFront = (appName) => {
         <ConfirmDialog
           message="Are you sure you want to delete this item permanently? This action cannot be undone."
           onConfirm={() => {
-            if (confirmAction) {
-              confirmAction();
-            }
+            if (confirmAction) confirmAction();
             setShowConfirmDialog(false);
             setConfirmAction(null);
           }}
@@ -1258,11 +1014,16 @@ const bringToFront = (appName) => {
         />
       )}
 
-      <Dock 
-        toggleApp={toggleApp} 
-        activeApps={openApps} 
-        userId={userId}   
-      />
+      <Dock userId={userId} />
     </div>
+  );
+}
+
+
+export default function MacOS() {
+  return (
+    <WindowProvider>
+      <Desktop />
+    </WindowProvider>
   );
 }
