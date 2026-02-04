@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { 
+import {
   X, ChevronLeft, ChevronRight, Search, Download, Star,
   TrendingUp, Sparkles, Grid3X3, List, Filter, RefreshCw,
   Check, Loader, Trash2, AlertCircle, Save, Loader2
 } from 'lucide-react';
-import {BASE_URL} from '../../../config.js';
+import { BASE_URL } from '../../../config.js';
 
 export default function AppStore({ userId }) {
   // App state
@@ -46,13 +46,13 @@ export default function AppStore({ userId }) {
       setLoading(true);
       setError(null);
       const response = await fetch(`${BASE_URL}/apps/all`);
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch apps');
       }
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
         const transformedApps = result.data.map(app => ({
           id: app._id,
@@ -71,7 +71,7 @@ export default function AppStore({ userId }) {
           installing: false,
           progress: 0
         }));
-        
+
         setApps(transformedApps);
       } else {
         throw new Error(result.message || 'Failed to load apps');
@@ -96,7 +96,7 @@ export default function AppStore({ userId }) {
 
       if (response.ok) {
         const data = await response.json();
-        
+
         // Load installed apps from backend
         if (data.desktopApps && data.desktopApps.length > 0) {
           setApps(prevApps =>
@@ -133,7 +133,7 @@ export default function AppStore({ userId }) {
 
     try {
       setIsSaving(true);
-      
+
       const requestBody = {
         desktopApps: installedAppNames
       };
@@ -189,12 +189,12 @@ export default function AppStore({ userId }) {
 
     // If it's a path to an image file
     if (icon.includes('.png') || icon.includes('.jpg') || icon.includes('.jpeg') || icon.includes('.svg') || icon.includes('.webp') || icon.includes('.avif')) {
-      let cleanPath = icon.trim(); 
-      
+      let cleanPath = icon.trim();
+
       if (cleanPath.startsWith('/')) {
         cleanPath = cleanPath.substring(1);
       }
-      
+
       let finalPath;
       if (cleanPath.startsWith('AppIcons/')) {
         finalPath = `/${cleanPath}`;
@@ -202,11 +202,11 @@ export default function AppStore({ userId }) {
         cleanPath = cleanPath.replace(/^AppIcons\//, '');
         finalPath = `/AppIcons/${cleanPath}`;
       }
-      
+
       return (
-        <img 
+        <img
           src={finalPath}
-          alt="App Icon" 
+          alt="App Icon"
           className="w-full h-full object-contain p-2"
           onError={(e) => {
             console.error('Failed to load image from:', finalPath);
@@ -220,13 +220,13 @@ export default function AppStore({ userId }) {
         />
       );
     }
-    
+
     // If it's a full URL
     if (icon.startsWith('http://') || icon.startsWith('https://')) {
       return (
-        <img 
-          src={icon} 
-          alt="App Icon" 
+        <img
+          src={icon}
+          alt="App Icon"
           className="w-full h-full object-contain p-2"
           onError={(e) => {
             console.error('Failed to load image from URL:', icon);
@@ -240,7 +240,7 @@ export default function AppStore({ userId }) {
         />
       );
     }
-    
+
     // Otherwise, treat it as an emoji or text
     return <span className="text-4xl">{icon}</span>;
   };
@@ -249,7 +249,7 @@ export default function AppStore({ userId }) {
   const filteredApps = apps.filter(app => {
     const matchesCategory = selectedCategory === 'All' || app.category === selectedCategory;
     const matchesSearch = app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         app.description.toLowerCase().includes(searchQuery.toLowerCase());
+      app.description.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
@@ -274,7 +274,7 @@ export default function AppStore({ userId }) {
     let progress = 0;
     const interval = setInterval(() => {
       progress += Math.random() * 15 + 5;
-      
+
       if (progress >= 100) {
         clearInterval(interval);
         setApps(prevApps =>
@@ -333,11 +333,11 @@ export default function AppStore({ userId }) {
     }
 
     setApps(prevApps =>
-      prevApps.map(app => ({ 
-        ...app, 
-        installed: false, 
-        installing: false, 
-        progress: 0 
+      prevApps.map(app => ({
+        ...app,
+        installed: false,
+        installing: false,
+        progress: 0
       }))
     );
     setHasUnsavedChanges(true);
@@ -454,11 +454,10 @@ export default function AppStore({ userId }) {
                   <button
                     key={category}
                     onClick={() => setSelectedCategory(category)}
-                    className={`px-4 py-2 rounded-full font-medium text-sm transition-all whitespace-nowrap ${
-                      selectedCategory === category
+                    className={`px-4 py-2 rounded-full font-medium text-sm transition-all whitespace-nowrap ${selectedCategory === category
                         ? 'bg-blue-500 text-white shadow-md'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                      }`}
                   >
                     {category}
                   </button>
@@ -516,7 +515,7 @@ export default function AppStore({ userId }) {
                     )}
                   </div>
                 )}
-                
+
                 {/* Featured Section */}
                 {!searchQuery && selectedCategory === 'All' && featuredApps.length > 0 && (
                   <div>
@@ -546,7 +545,7 @@ export default function AppStore({ userId }) {
                               </div>
                               <span className="text-xs text-gray-500">{app.downloads}</span>
                             </div>
-                            
+
                             <div className="mt-3" onClick={(e) => e.stopPropagation()}>
                               {app.installing ? (
                                 <div>
@@ -595,17 +594,15 @@ export default function AppStore({ userId }) {
                     <div className="flex gap-2">
                       <button
                         onClick={() => setView('grid')}
-                        className={`p-2 rounded-lg transition-colors ${
-                          view === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
-                        }`}
+                        className={`p-2 rounded-lg transition-colors ${view === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
+                          }`}
                       >
                         <Grid3X3 size={18} />
                       </button>
                       <button
                         onClick={() => setView('list')}
-                        className={`p-2 rounded-lg transition-colors ${
-                          view === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
-                        }`}
+                        className={`p-2 rounded-lg transition-colors ${view === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
+                          }`}
                       >
                         <List size={18} />
                       </button>
@@ -636,7 +633,7 @@ export default function AppStore({ userId }) {
                             </div>
                             <span className="text-xs font-semibold text-blue-600">{app.price}</span>
                           </div>
-                          
+
                           <div className="mt-3" onClick={(e) => e.stopPropagation()}>
                             {app.installing ? (
                               <div>
@@ -693,7 +690,7 @@ export default function AppStore({ userId }) {
                               <span>{app.downloads}</span>
                               <span>{app.size}</span>
                             </div>
-                            
+
                             {app.installing && (
                               <div className="mt-2">
                                 <div className="flex items-center justify-between mb-1">
@@ -767,7 +764,7 @@ export default function AppStore({ userId }) {
                 <X size={24} />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex gap-6">
@@ -787,7 +784,7 @@ export default function AppStore({ userId }) {
                     <p className="text-xs text-gray-600">Size</p>
                   </div>
                 </div>
-                
+
                 <div onClick={(e) => e.stopPropagation()}>
                   {selectedApp.installing ? (
                     <div className="min-w-[140px]">

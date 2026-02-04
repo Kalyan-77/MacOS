@@ -159,7 +159,7 @@ const DesktopItem = ({ item, onDoubleClick, onRightClick, isSelected, onClick, o
         left: 0,
         top: 0,
         transition: isDragging ? 'none' : 'all 0.2s',
-        zIndex: isSelected ? 100 : 1
+        zIndex: isSelected ? 10 : 1
       }}
     >
       <button
@@ -282,7 +282,7 @@ const ContextMenu = ({ x, y, onClose, onAction, selectedItem }) => {
   return (
     <div
       className="fixed bg-gray-800 bg-opacity-95 backdrop-blur-md rounded-lg shadow-2xl py-2 min-w-48 z-50 border border-gray-600"
-      style={{ left: x, top: y }}
+      style={{ left: x, top: y, zIndex: 9999 }}
     >
       {menuItems.map((item, index) => {
         if (item.divider) {
@@ -325,7 +325,7 @@ const CreateItemModal = ({ onClose, onCreate, type = "folder" }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ zIndex: 9999 }}>
       <div className="bg-gray-800 rounded-lg p-6 w-96 border border-gray-600">
         <h2 className="text-white text-lg font-semibold mb-4">
           Create New {type === "folder" ? "Folder" : "File"}
@@ -379,7 +379,7 @@ const RenameModal = ({ item, onClose, onRename }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ zIndex: 9999 }}>
       <div className="bg-gray-800 rounded-lg p-6 w-96 border border-gray-600">
         <h2 className="text-white text-lg font-semibold mb-4">Rename</h2>
         <form onSubmit={handleSubmit}>
@@ -415,7 +415,7 @@ const RenameModal = ({ item, onClose, onRename }) => {
 // Confirmation Dialog
 const ConfirmDialog = ({ message, onConfirm, onCancel, danger = false }) => {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ zIndex: 9999 }}>
       <div className="bg-gray-800 rounded-lg p-6 w-96 border border-gray-600">
         <h2 className="text-white text-lg font-semibold mb-4">Confirm Action</h2>
         <p className="text-gray-300 mb-6">{message}</p>

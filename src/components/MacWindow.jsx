@@ -1,8 +1,13 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useWindows } from "../context/WindowContext";
 
 export default function MacWindow({ app, userId }) {
   const { minimizeApp, closeApp, focusApp } = useWindows();
+
+  // ---------------- RESPONSIVE STATE ----------------
+  const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
+  const [screenSize, setScreenSize] = useState({ width: window.innerWidth, height: window.innerHeight });
 
   // ---------------- LOCAL UI STATE ----------------
   const [position, setPosition] = useState({ x: 200, y: 60 });
@@ -28,9 +33,62 @@ export default function MacWindow({ app, userId }) {
   const DOCK_HEIGHT = 40;
   const SIDE_MARGIN = 0;
 
+  // ---------------- RESPONSIVE DETECTION ----------------
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      setScreenSize({ width, height });
+      const mobile = width < 768;
+      const tablet = width >= 768 && width < 1024;
+
+      setIsMobile(mobile);
+      setIsTablet(tablet);
+
+      // Auto-adjust window size and position for different screens
+      if (mobile) {
+        // Mobile: Full screen with top bar visible
+        if (!isMaximized) {
+          setPreMaximizeState({ x: position.x, y: position.y, w: size.w, h: size.h });
+        }
+        setIsMaximized(true);
+        setSize({ w: width, h: height - TOPBAR_HEIGHT });
+        setPosition({ x: 0, y: TOPBAR_HEIGHT });
+      } else if (tablet) {
+        // Tablet: Maximize or fit to screen
+        const maxWidth = width - 40;
+        const maxHeight = height - TOPBAR_HEIGHT - 40;
+
+        if (size.w > maxWidth || size.h > maxHeight) {
+          setSize({
+            w: Math.min(size.w, maxWidth),
+            h: Math.min(size.h, maxHeight)
+          });
+        }
+
+        // Keep window on screen
+        setPosition(prev => ({
+          x: Math.max(20, Math.min(prev.x, width - size.w - 20)),
+          y: Math.max(TOPBAR_HEIGHT, Math.min(prev.y, height - size.h - 20))
+        }));
+      } else {
+        // Desktop: Keep reasonable bounds
+        setPosition(prev => ({
+          x: Math.max(0, Math.min(prev.x, width - 300)),
+          y: Math.max(TOPBAR_HEIGHT, Math.min(prev.y, height - 200))
+        }));
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // ---------------- DRAG ----------------
   const startDrag = (e) => {
-    if (isMaximized) return;
+    if (isMaximized || isMobile) return; // Prevent dragging on mobile
 
     focusApp(app.id);
 
@@ -44,9 +102,12 @@ export default function MacWindow({ app, userId }) {
   };
 
   const drag = (e) => {
+    const maxX = screenSize.width - size.w;
+    const maxY = screenSize.height - size.h;
+
     setPosition({
-      x: e.clientX - offset.current.x,
-      y: e.clientY - offset.current.y
+      x: Math.max(0, Math.min(e.clientX - offset.current.x, maxX)),
+      y: Math.max(TOPBAR_HEIGHT, Math.min(e.clientY - offset.current.y, maxY))
     });
   };
 
@@ -57,6 +118,8 @@ export default function MacWindow({ app, userId }) {
 
   // ---------------- RESIZE ----------------
   const startResize = (e, direction) => {
+    if (isMobile) return; // No resizing on mobile
+
     e.stopPropagation();
     focusApp(app.id);
 
@@ -100,9 +163,13 @@ export default function MacWindow({ app, userId }) {
       newY = resizeStart.current.startY + deltaY;
     }
 
-    // Apply minimum size constraints
-    const minWidth = 320;
-    const minHeight = 220;
+    // Apply minimum size constraints (responsive)
+    const minWidth = isMobile ? screenSize.width : isTablet ? 400 : 320;
+    const minHeight = isMobile ? screenSize.height - TOPBAR_HEIGHT : isTablet ? 300 : 220;
+
+    // Apply maximum size constraints
+    const maxWidth = screenSize.width - (isMobile ? 0 : 40);
+    const maxHeight = screenSize.height - TOPBAR_HEIGHT - (isMobile ? 0 : 40);
 
     if (newWidth < minWidth) {
       if (direction.includes('w')) {
@@ -111,11 +178,35 @@ export default function MacWindow({ app, userId }) {
       newWidth = minWidth;
     }
 
+    if (newWidth > maxWidth) {
+      newWidth = maxWidth;
+      if (direction.includes('w')) {
+        newX = resizeStart.current.startX;
+      }
+    }
+
     if (newHeight < minHeight) {
       if (direction.includes('n')) {
         newY = resizeStart.current.startY + (resizeStart.current.h - minHeight);
       }
       newHeight = minHeight;
+    }
+
+    if (newHeight > maxHeight) {
+      newHeight = maxHeight;
+      if (direction.includes('n')) {
+        newY = resizeStart.current.startY;
+      }
+    }
+
+    // Keep window within bounds
+    if (newX < 0) newX = 0;
+    if (newY < TOPBAR_HEIGHT) newY = TOPBAR_HEIGHT;
+    if (newX + newWidth > screenSize.width) {
+      newX = screenSize.width - newWidth;
+    }
+    if (newY + newHeight > screenSize.height) {
+      newY = screenSize.height - newHeight;
     }
 
     setSize({ w: newWidth, h: newHeight });
@@ -129,6 +220,8 @@ export default function MacWindow({ app, userId }) {
 
   // ---------------- MAXIMIZE ----------------
   const toggleMaximize = () => {
+    if (isMobile) return; // Mobile is always maximized
+
     if (isMaximized) {
       // Restore to previous size and position
       setSize({ w: preMaximizeState.w, h: preMaximizeState.h });
@@ -143,8 +236,8 @@ export default function MacWindow({ app, userId }) {
       });
 
       // Maximize with proper spacing
-      const maxWidth = window.innerWidth - (SIDE_MARGIN * 2);
-      const maxHeight = window.innerHeight - TOPBAR_HEIGHT;
+      const maxWidth = screenSize.width - (SIDE_MARGIN * 2);
+      const maxHeight = screenSize.height - TOPBAR_HEIGHT;
 
       setSize({ w: maxWidth, h: maxHeight });
       setPosition({ x: SIDE_MARGIN, y: TOPBAR_HEIGHT });
@@ -161,6 +254,11 @@ export default function MacWindow({ app, userId }) {
 
   console.log('MacWindow rendering:', app.name, 'with props:', componentProps);
 
+  // Determine border radius based on screen size
+  const borderRadius = isMobile ? 'rounded-t-xl' : 'rounded-xl';
+  const titleBarRadius = 'rounded-t-xl';
+  const contentRadius = isMobile ? 'rounded-b-none' : 'rounded-b-xl';
+
   return (
     <div
       style={{
@@ -171,35 +269,46 @@ export default function MacWindow({ app, userId }) {
         display: app.minimized ? "none" : "block"
       }}
       onMouseDown={() => focusApp(app.id)}
-      className="fixed bg-zinc-800 rounded-xl shadow-2xl text-white"
+      className={`fixed bg-zinc-800 ${borderRadius} shadow-2xl text-white ${isMobile ? 'touch-none' : ''}`}
     >
       {/* TITLE BAR */}
       <div
         onMouseDown={startDrag}
-        className="h-10 bg-zinc-900 rounded-t-xl flex items-center px-3 cursor-move select-none"
+        className={`h-10 bg-zinc-900 ${titleBarRadius} flex items-center px-3 ${isMobile ? 'cursor-default' : 'cursor-move'
+          } select-none`}
       >
         <div className="flex gap-2">
           <button
             onClick={() => closeApp(app.id)}
-            className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-600 transition-colors"
+            className={`${isMobile ? 'w-4 h-4' : 'w-3 h-3'
+              } rounded-full bg-red-500 hover:bg-red-600 transition-colors`}
+            aria-label="Close"
           />
           <button
             onClick={() => minimizeApp(app.id)}
-            className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-600 transition-colors"
+            className={`${isMobile ? 'w-4 h-4' : 'w-3 h-3'
+              } rounded-full bg-yellow-500 hover:bg-yellow-600 transition-colors`}
+            aria-label="Minimize"
           />
-          <button
-            onClick={toggleMaximize}
-            className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-600 transition-colors"
-          />
+          {!isMobile && (
+            <button
+              onClick={toggleMaximize}
+              className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-600 transition-colors"
+              aria-label="Maximize"
+            />
+          )}
         </div>
 
-        <div className="flex-1 text-center text-sm text-zinc-400">
+        <div className={`flex-1 text-center ${isMobile ? 'text-xs' : 'text-sm'} text-zinc-400 truncate px-2`}>
           {app.name}
         </div>
+
+        {/* Spacer for alignment */}
+        <div className={`${isMobile ? 'w-4' : 'w-[52px]'}`}></div>
       </div>
 
       {/* CONTENT */}
-      <div className="h-[calc(100%-2.5rem)] overflow-auto">
+      <div className={`h-[calc(100%-2.5rem)] overflow-auto ${contentRadius}`}>
         {app.component ? (
           <app.component {...componentProps} />
         ) : (
@@ -209,43 +318,51 @@ export default function MacWindow({ app, userId }) {
         )}
       </div>
 
-      {/* 🔥 RESIZE HANDLES */}
-      {!isMaximized && (
+      {/* 🔥 RESIZE HANDLES - Only on desktop/tablet */}
+      {!isMaximized && !isMobile && (
         <>
           {/* CORNERS */}
           <div
             onMouseDown={(e) => startResize(e, 'nw')}
             className="absolute -top-1 -left-1 w-3 h-3 cursor-nw-resize"
+            aria-label="Resize top-left"
           />
           <div
             onMouseDown={(e) => startResize(e, 'ne')}
             className="absolute -top-1 -right-1 w-3 h-3 cursor-ne-resize"
+            aria-label="Resize top-right"
           />
           <div
             onMouseDown={(e) => startResize(e, 'sw')}
             className="absolute -bottom-1 -left-1 w-3 h-3 cursor-sw-resize"
+            aria-label="Resize bottom-left"
           />
           <div
             onMouseDown={(e) => startResize(e, 'se')}
             className="absolute -bottom-1 -right-1 w-3 h-3 cursor-se-resize"
+            aria-label="Resize bottom-right"
           />
 
           {/* EDGES */}
           <div
             onMouseDown={(e) => startResize(e, 'n')}
             className="absolute -top-1 left-3 right-3 h-2 cursor-n-resize"
+            aria-label="Resize top"
           />
           <div
             onMouseDown={(e) => startResize(e, 's')}
             className="absolute -bottom-1 left-3 right-3 h-2 cursor-s-resize"
+            aria-label="Resize bottom"
           />
           <div
             onMouseDown={(e) => startResize(e, 'w')}
             className="absolute -left-1 top-3 bottom-3 w-2 cursor-w-resize"
+            aria-label="Resize left"
           />
           <div
             onMouseDown={(e) => startResize(e, 'e')}
             className="absolute -right-1 top-3 bottom-3 w-2 cursor-e-resize"
+            aria-label="Resize right"
           />
         </>
       )}

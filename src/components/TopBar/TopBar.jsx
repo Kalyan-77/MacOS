@@ -42,20 +42,20 @@ export default function TopBar() {
 
   return (
     <div className="fixed top-0 w-full h-8 backdrop-blur-xl bg-black/20 text-white flex items-center justify-between px-2 sm:px-4 py-5 select-none shadow-lg z-50">
-      
+
       {/* Left Side */}
       <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
         {/* Apple Menu */}
         <div className="relative menu-container flex-shrink-0">
-          <div 
+          <div
             className="h-4 cursor-pointer flex items-center justify-center text-white font-bold text-sm hover:bg-white/20 rounded px-1"
             onClick={handleAppleClick}
           >
-           <img
+            <img
               src={white}
               alt="Apple Logo"
               className="h-4 cursor-pointer"
-            /> 
+            />
           </div>
 
           {showAppleMenu && (
@@ -94,7 +94,7 @@ export default function TopBar() {
       <div className="flex items-center gap-2 sm:gap-4 text-sm flex-shrink-0">
         {windows.length > 0 && (
           <>
-            <div className="hidden md:flex items-center gap-2 overflow-x-auto scrollbar-hide max-w-[240px] ml-1 flex-shrink-0">
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide max-w-[240px] ml-1 flex-shrink-0">
               {windows.map((app) => (
                 <button
                   key={app.id}
@@ -118,20 +118,20 @@ export default function TopBar() {
         <div className="hidden md:block">
           <BatteryStatus />
         </div>
-        
+
         {/* WiFi Icon - Hidden on small screens */}
         <div className="hidden md:block">
           <Wifi size={20} className="sm:w-6 sm:h-6 hover:bg-white/20 rounded p-1 cursor-pointer" />
         </div>
-        
+
         {/* Search Icon - Hidden on small screens */}
         <div className="hidden md:block">
           <Search size={20} className="sm:w-6 sm:h-6 hover:bg-white/20 rounded p-1 cursor-pointer" />
         </div>
-        
+
         {/* Control Center */}
         <div className="hidden md:block relative menu-container">
-          <div 
+          <div
             className="h-5 w-5 sm:h-6 sm:w-6 cursor-pointer hover:bg-white/20 rounded p-1 flex items-center justify-center"
             onClick={handleControlCenterClick}
           >
@@ -148,7 +148,7 @@ export default function TopBar() {
           )}
         </div>
 
-        <DateTime /> 
+        <DateTime />
       </div>
 
       <style jsx>{`
@@ -190,7 +190,7 @@ function AppleMenu({ onClose }) {
         if (item.divider) {
           return <div key={index} className="h-px bg-gray-600 my-1 mx-4"></div>;
         }
-        
+
         return (
           <div
             key={index}
@@ -239,7 +239,7 @@ function FileMenu({ onClose }) {
         if (item.divider) {
           return <div key={index} className="h-px bg-gray-600 my-1 mx-4"></div>;
         }
-        
+
         return (
           <div
             key={index}
@@ -277,12 +277,11 @@ function ControlCenter({ onClose }) {
       {/* Connectivity Controls */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4">
         {/* WiFi */}
-        <div 
-          className={`p-3 sm:p-4 rounded-xl cursor-pointer transition-all duration-200 ${
-            wifiEnabled 
-              ? 'bg-blue-500 hover:bg-blue-600' 
-              : 'bg-gray-700 hover:bg-gray-600'
-          }`}
+        <div
+          className={`p-3 sm:p-4 rounded-xl cursor-pointer transition-all duration-200 ${wifiEnabled
+            ? 'bg-blue-500 hover:bg-blue-600'
+            : 'bg-gray-700 hover:bg-gray-600'
+            }`}
           onClick={() => setWifiEnabled(!wifiEnabled)}
         >
           <div className="flex items-center gap-2 sm:gap-3">
@@ -297,12 +296,11 @@ function ControlCenter({ onClose }) {
         </div>
 
         {/* Bluetooth */}
-        <div 
-          className={`p-3 sm:p-4 rounded-xl cursor-pointer transition-all duration-200 ${
-            bluetoothEnabled 
-              ? 'bg-blue-500 hover:bg-blue-600' 
-              : 'bg-gray-700 hover:bg-gray-600'
-          }`}
+        <div
+          className={`p-3 sm:p-4 rounded-xl cursor-pointer transition-all duration-200 ${bluetoothEnabled
+            ? 'bg-blue-500 hover:bg-blue-600'
+            : 'bg-gray-700 hover:bg-gray-600'
+            }`}
           onClick={() => setBluetoothEnabled(!bluetoothEnabled)}
         >
           <div className="flex items-center gap-2 sm:gap-3">
@@ -317,12 +315,11 @@ function ControlCenter({ onClose }) {
         </div>
 
         {/* AirDrop */}
-        <div 
-          className={`p-3 sm:p-4 rounded-xl cursor-pointer transition-all duration-200 ${
-            airDropEnabled 
-              ? 'bg-blue-500 hover:bg-blue-600' 
-              : 'bg-gray-700 hover:bg-gray-600'
-          }`}
+        <div
+          className={`p-3 sm:p-4 rounded-xl cursor-pointer transition-all duration-200 ${airDropEnabled
+            ? 'bg-blue-500 hover:bg-blue-600'
+            : 'bg-gray-700 hover:bg-gray-600'
+            }`}
           onClick={() => setAirDropEnabled(!airDropEnabled)}
         >
           <div className="flex items-center gap-2 sm:gap-3">
@@ -337,12 +334,11 @@ function ControlCenter({ onClose }) {
         </div>
 
         {/* Do Not Disturb */}
-        <div 
-          className={`p-3 sm:p-4 rounded-xl cursor-pointer transition-all duration-200 ${
-            doNotDisturb 
-              ? 'bg-purple-500 hover:bg-purple-600' 
-              : 'bg-gray-700 hover:bg-gray-600'
-          }`}
+        <div
+          className={`p-3 sm:p-4 rounded-xl cursor-pointer transition-all duration-200 ${doNotDisturb
+            ? 'bg-purple-500 hover:bg-purple-600'
+            : 'bg-gray-700 hover:bg-gray-600'
+            }`}
           onClick={() => setDoNotDisturb(!doNotDisturb)}
         >
           <div className="flex items-center gap-2 sm:gap-3">
@@ -437,19 +433,19 @@ function ControlCenter({ onClose }) {
           </div>
         </div>
         <div className="flex items-center justify-center gap-4 sm:gap-6">
-          <button 
+          <button
             className="text-white hover:text-gray-300 transition-colors"
             onClick={() => console.log('Previous track')}
           >
             <div className="text-lg sm:text-xl">⏮️</div>
           </button>
-          <button 
+          <button
             className="text-white hover:text-gray-300 transition-colors"
             onClick={() => console.log('Play/Pause')}
           >
             <div className="text-xl sm:text-2xl">▶️</div>
           </button>
-          <button 
+          <button
             className="text-white hover:text-gray-300 transition-colors"
             onClick={() => console.log('Next track')}
           >
@@ -471,13 +467,13 @@ function BatteryStatus() {
       if ("getBattery" in navigator) {
         navigator.getBattery().then((batt) => {
           setBattery({ level: batt.level, charging: batt.charging });
-          
-          const updateHandler = () => 
+
+          const updateHandler = () =>
             setBattery({ level: batt.level, charging: batt.charging });
-          
+
           batt.addEventListener("levelchange", updateHandler);
           batt.addEventListener("chargingchange", updateHandler);
-          
+
           return () => {
             batt.removeEventListener("levelchange", updateHandler);
             batt.removeEventListener("chargingchange", updateHandler);
@@ -485,14 +481,14 @@ function BatteryStatus() {
         });
       }
     };
-    
+
     updateBattery();
   }, []);
 
   const percent = Math.round(battery.level * 100);
 
   return (
-    <div 
+    <div
       className="relative flex items-center gap-1 sm:gap-2 hover:bg-white/20 rounded px-1 sm:px-2 py-1 cursor-pointer"
       onMouseEnter={() => setShowBatteryTooltip(true)}
       onMouseLeave={() => setShowBatteryTooltip(false)}
@@ -501,19 +497,18 @@ function BatteryStatus() {
       <div className="relative w-5 h-2.5 sm:w-6 sm:h-3 border border-white rounded-sm overflow-hidden">
         {/* Fill bar */}
         <div
-          className={`h-full transition-all duration-300 ${
-            percent > 20 
-              ? battery.charging 
-                ? "bg-green-400" 
-                : "bg-white"
-              : "bg-red-500"
-          }`}
+          className={`h-full transition-all duration-300 ${percent > 20
+            ? battery.charging
+              ? "bg-green-400"
+              : "bg-white"
+            : "bg-red-500"
+            }`}
           style={{ width: `${Math.max(percent, 3)}%` }}
         ></div>
-        
+
         {/* Battery tip */}
         <div className="absolute -right-0.5 top-0.5 h-1 sm:h-1.5 w-0.5 bg-white rounded-sm"></div>
-        
+
         {/* Charging bolt */}
         {battery.charging && (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -552,17 +547,17 @@ function DateTime() {
   }, []);
 
   const formatTime = (date) => {
-    return date.toLocaleTimeString([], { 
-      hour: '2-digit', 
+    return date.toLocaleTimeString([], {
+      hour: '2-digit',
       minute: '2-digit',
       hour12: true
     });
   };
 
   const formatDate = (date) => {
-    return date.toLocaleDateString([], { 
+    return date.toLocaleDateString([], {
       weekday: 'short',
-      month: 'short', 
+      month: 'short',
       day: 'numeric'
     });
   };
@@ -577,12 +572,12 @@ function DateTime() {
   };
 
   return (
-    <div 
+    <div
       className="hidden md:block relative flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 hover:bg-white/20 rounded px-1 sm:px-2 py-1 cursor-pointer text-xs sm:text-sm"
       onMouseEnter={() => setShowTimeTooltip(true)}
       onMouseLeave={() => setShowTimeTooltip(false)}
     >
-      <span className="hidden sm:inline">{formatDate(time)}</span>
+      <span className="hidden sm:inline">{formatDate(time)}, </span>
       <span>{formatTime(time)}</span>
       <span className="sm:hidden text-xs opacity-75">{formatDate(time).split(' ')[0]}</span>
 

@@ -72,7 +72,7 @@ export default function NotePad({ onClose, fileToOpen = null, userId, zIndex = 1
       }
 
       const content = await response.text();
-      
+
       setNoteContent(content);
       setIsSaved(true);
 
@@ -81,7 +81,7 @@ export default function NotePad({ onClose, fileToOpen = null, userId, zIndex = 1
         window.notepadData.fileName = file.name;
         window.notepadData.isSaved = true;
       }
-      
+
       setIsLoading(false);
     } catch (error) {
       console.error("Error loading file:", error);
@@ -174,7 +174,7 @@ export default function NotePad({ onClose, fileToOpen = null, userId, zIndex = 1
 
         const data = await response.json();
         console.log('File updated:', data);
-        
+
         setIsSaved(true);
         if (window.notepadData) {
           window.notepadData.isSaved = true;
@@ -202,7 +202,7 @@ export default function NotePad({ onClose, fileToOpen = null, userId, zIndex = 1
 
         const data = await response.json();
         console.log('File created:', data);
-        
+
         setCurrentFileId(data.file._id);
         setGoogleDriveId(data.file.googleDriveId);
         setIsSaved(true);
@@ -227,7 +227,7 @@ export default function NotePad({ onClose, fileToOpen = null, userId, zIndex = 1
 
   const handleSaveAsConfirm = async () => {
     setShowSaveDialog(false);
-    
+
     // Reset file IDs to create a new file
     setCurrentFileId(null);
     setGoogleDriveId(null);

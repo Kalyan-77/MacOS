@@ -5,7 +5,7 @@ export const useWindows = () => useContext(WindowContext);
 
 export function WindowProvider({ children }) {
   const [windows, setWindows] = useState([]);
-  const [zCounter, setZCounter] = useState(1);
+  const [zCounter, setZCounter] = useState(100);
 
   const openWindow = (id, name, component, props = {}, icon = null) => {
     // Check if window already exists
