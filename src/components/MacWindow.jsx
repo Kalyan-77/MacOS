@@ -269,7 +269,7 @@ export default function MacWindow({ app, userId }) {
         display: app.minimized ? "none" : "block"
       }}
       onMouseDown={() => focusApp(app.id)}
-      className={`fixed bg-zinc-800 ${borderRadius} shadow-2xl text-white ${isMobile ? 'touch-none' : ''}`}
+      className={`app-window fixed bg-zinc-800 ${borderRadius} shadow-2xl text-white ${isMobile ? 'touch-none' : ''}`}
     >
       {/* TITLE BAR */}
       <div

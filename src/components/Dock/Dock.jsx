@@ -1,75 +1,53 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useWindows } from "../../context/WindowContext";
 import { BASE_URL } from "../../../config";
-import NotePad from "../Apps/NotePad";
-import Calculator from "../Apps/Calculator";
-import Calendar from "../Apps/Calendar";
-import Terminal from "../Apps/Terminal";
-import FileManager from "../Apps/Finder";
-import VSCode from "../Apps/VSCode";
-import Edge from "../Apps/Edge";
-import Maps from "../Apps/Maps";
-import Photos from "../Apps/Photos";
-import MusicPlayer from "../Apps/Music";
-import VideoPlayer from "../Apps/VideoPlayer";
-import VLCPlayer from "../Apps/VlcPlayer";
-import Trash from "../Apps/Trash";
-import AppStore from "../Apps/AppStore";
-import Whatspp from "../Apps/Whatspp";
-import Perplexity from "../Apps/Perplexity";
+import { allAvailableApps, defaultAppIds, defaultAppObjects } from "../../registry/appRegistry";
 
-export default function Dock({ userId }) {
+export default function Dock({ userId, initialDockConfig }) {
   const { windows, openApp, focusApp } = useWindows();
   const [hovered, setHovered] = useState(null);
   const [showAllApps, setShowAllApps] = useState(false);
-  const [installedApps, setInstalledApps] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const isInitialMount = useRef(true);
 
-  // All available apps with their complete metadata including components
-  const allAvailableApps = [
-    { id: "filemanager", name: "Finder", icon: "/AppIcons/finder.png", component: FileManager },
-    { id: "launchpad", name: "Launchpad", icon: "/AppIcons/launchpad.png", component: null },
-    { id: "preferences", name: "Preferences", icon: "/AppIcons/preferences.png", component: null },
-    { id: "contacts", name: "Contacts", icon: "/AppIcons/contacts.png", component: null },
-    { id: "notepad", name: "Notes", icon: "/AppIcons/notes.png", component: NotePad },
-    { id: "appstore", name: "App Store", icon: "/AppIcons/appstore.png", component: AppStore },
-    { id: "calculator", name: "Calculator", icon: "/AppIcons/calculator.png", component: Calculator },
-    { id: "calendar", name: "Calendar", icon: "/AppIcons/calendar.png", component: Calendar },
-    { id: "terminal", name: "Terminal", icon: "/AppIcons/terminal.png", component: Terminal },
-    { id: "vscode", name: "VS Code", icon: "/AppIcons/vscode.svg", component: VSCode },
-    { id: "photos", name: "Photos", icon: "/AppIcons/photos.png", component: Photos },
-    { id: "messages", name: "Messages", icon: "/AppIcons/message.png", component: null },
-    { id: "maps", name: "Maps", icon: "/AppIcons/maps.png", component: Maps },
-    { id: "mail", name: "Mail", icon: "/AppIcons/mail.png", component: null },
-    { id: "trash", name: "Trash", icon: "/AppIcons/bin.png", component: Trash },
-    { id: "musicplayer", name: "Music", icon: "/AppIcons/music.png", component: MusicPlayer },
-    { id: "reminders", name: "Reminders", icon: "/AppIcons/reminders.png", component: null },
-    { id: "edge", name: "Edge", icon: "/AppIcons/edge.png", component: Edge },
-    { id: "vlcplayer", name: "VLC", icon: "/AppIcons/vlc.png", component: VLCPlayer },
-    { id: "photoshop", name: "Photoshop", icon: "/AppIcons/photos.png", component: null },
-    { id: "illustrator", name: "Illustrator", icon: "/AppIcons/photos.png", component: null },
-    { id: "premiere", name: "Premiere", icon: "/AppIcons/vlc.png", component: null },
-    { id: "aftereffects", name: "After Effects", icon: "/AppIcons/calculator.png", component: null },
-    { id: "figma", name: "Figma", icon: "/AppIcons/figma.webp", component: null },
-    { id: "sketch", name: "Sketch", icon: "/AppIcons/photos.png", component: null },
-    { id: "spotify", name: "Spotify", icon: "/AppIcons/music.png", component: null },
-    { id: "discord", name: "Discord", icon: "/AppIcons/message.png", component: null },
-    { id: "slack", name: "Slack", icon: "/AppIcons/message.png", component: null },
-    { id: "zoom", name: "Zoom", icon: "/AppIcons/zoom.webp", component: null },
-    { id: "teams", name: "Teams", icon: "/AppIcons/teams.jpg", component: null },
-    { id: "chrome", name: "Chrome", icon: "/AppIcons/edge.png", component: null },
-    { id: "chess", name: "Chess", icon: "/AppIcons/chess.png", component: null },
-    { id: "videoplayer", name: "Video Player", icon: "/AppIcons/TV.jpg", component: VideoPlayer },
-    { id: "whatsapp", name: "WhatsApp", icon: "/AppIcons/Whatsapp.png", component: Whatspp },
-    { id: "instagram", name: "Instagram", icon: "/AppIcons/Instagram.jpg", component: null },
-    { id: "perplexity", name: "Perplexity.AI", icon: "/AppIcons/perplexity.avif", component: Perplexity },
-  ];
 
-  // Default apps that are always present for all users
-  const defaultAppIds = ["filemanager", "appstore", "terminal", "trash"];
+  const getAppsFromConfig = (config) => {
+    if (!config) return defaultAppObjects;
+    const dbAppNames = config.desktopApps || [];
+    const appNameMap = {};
+    allAvailableApps.forEach(app => {
+      const normalizedName = app.name.toLowerCase().replace(/\s+/g, '');
+      appNameMap[normalizedName] = app;
+    });
+
+    const dbAppObjects = dbAppNames
+      .map(name => {
+        const normalizedName = name.toLowerCase().replace(/\s+/g, '');
+        return appNameMap[normalizedName];
+      })
+      .filter(Boolean);
+
+    const additionalApps = dbAppObjects.filter(app =>
+      !defaultAppIds.includes(app.id)
+    );
+
+    return [...defaultAppObjects, ...additionalApps];
+  };
+
+  const [installedApps, setInstalledApps] = useState(() => {
+    if (initialDockConfig) {
+      return getAppsFromConfig(initialDockConfig);
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(!initialDockConfig);
 
   // Fetch installed apps from database
   useEffect(() => {
+    if (isInitialMount.current && initialDockConfig) {
+      isInitialMount.current = false;
+      return;
+    }
+
     const fetchInstalledApps = async () => {
       // Always include default apps
       const defaultAppObjects = allAvailableApps.filter(app =>
@@ -180,12 +158,12 @@ export default function Dock({ userId }) {
   };
 
   const handleAppClick = (app) => {
+    if (app.id === 'launchpad') {
+      setShowAllApps(true);
+      return;
+    }
+
     if (!app.component) {
-      if (app.id === 'launchpad' || app.id === 'preferences') {
-        // Special handling if these become standalone apps
-        // For now, these might be used as the trigger locally.
-        return;
-      }
       alert(`App "${app.name}" is not fully implemented yet.`);
       return;
     }
@@ -265,7 +243,7 @@ export default function Dock({ userId }) {
 
           <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 hide-scrollbar">
             <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-6 pb-6 min-h-full justify-items-center">
-              {installedApps.map((app, idx) => (
+              {installedApps.filter(app => app.id !== 'launchpad').map((app, idx) => (
                 <div
                   key={`${app.id}-${idx}`}
                   className="flex flex-col items-center cursor-pointer group relative"
@@ -348,44 +326,12 @@ export default function Dock({ userId }) {
             </div>
           ))}
 
-          {/* More Apps Button - Show Preferences Icon to open drawer */}
-          {installedApps.length > 15 && (
-            <div
-              className="cursor-pointer flex items-end relative"
-              onMouseEnter={() => setHovered(mainDockApps.length)}
-              onClick={handleMoreAppsClick}
-              style={{
-                transform: `scale(${getScale(mainDockApps.length)}) translateY(${getTranslateY(
-                  mainDockApps.length
-                )}px) translateX(${getTranslateX(mainDockApps.length)}px)`,
-                transition:
-                  "transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-                transformOrigin: "bottom center",
-              }}
-            >
-              {hovered === mainDockApps.length && (
-                <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800/90 text-white text-xs font-medium px-3 py-1.5 rounded-md whitespace-nowrap backdrop-blur-sm shadow-lg">
-                  More Apps
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-800/90"></div>
-                </div>
-              )}
 
-              <img
-                src="/AppIcons/launchpad.png"
-                alt="Launchpad"
-                className="rounded-xl shadow-lg"
-                style={{
-                  width: "56px",
-                  height: "56px",
-                }}
-              />
-            </div>
-          )}
         </div>
 
         {/* Mobile Dock */}
         <div className="sm:hidden backdrop-blur-md bg-white/5 px-4 py-3 rounded-2xl flex items-center justify-center gap-8 shadow-sm">
-          {essentialApps.map((app, idx) => (
+          {essentialApps.map((app) => (
             <div
               key={app.id}
               className="cursor-pointer flex flex-col items-center group relative"

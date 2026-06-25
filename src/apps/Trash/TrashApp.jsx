@@ -34,6 +34,16 @@ export default function Trash() {
   }, [user]);
 
   useEffect(() => {
+    const handleSystemRefresh = () => {
+      if (user) {
+        loadTrash();
+      }
+    };
+    window.addEventListener("system:refresh", handleSystemRefresh);
+    return () => window.removeEventListener("system:refresh", handleSystemRefresh);
+  }, [user]);
+
+  useEffect(() => {
     const handleClick = (e) => {
       if (sortMenuRef.current && !sortMenuRef.current.contains(e.target)) {
         setShowSortMenu(false);
