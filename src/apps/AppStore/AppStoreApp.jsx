@@ -1,28 +1,34 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  X, ChevronLeft, ChevronRight, Search, Download, Star,
-  TrendingUp, Sparkles, Grid3X3, List, Filter, RefreshCw,
-  Check, Loader, Trash2, AlertCircle, Save, Loader2
+  X, Search, Download, Star, Sparkles, RefreshCw,
+  Check, Loader, Trash2, AlertCircle, Save, Loader2,
+  Compass, Users, Gamepad, CheckSquare, MessageSquare, ShoppingBag, Code, ArrowDownCircle, User
 } from 'lucide-react';
-import { BASE_URL } from '../../../config.js';
+import { configService } from '../../api/configService';
+import { appStoreService } from '../../api/appStoreService';
 
-export default function AppStore({ userId }) {
+export default function AppStore({ userId, userName }) {
   // App state
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [view, setView] = useState('grid');
   const [selectedApp, setSelectedApp] = useState(null);
   const [apps, setApps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [notification, setNotification] = useState(null);
 
-  // App categories
-  const categories = [
-    'All', 'Social', 'Entertainment', 'Productivity', 'Communication', 'Shopping', 'Developer Tools'
+  // macOS App Store Sidebar items mapping
+  const sidebarItems = [
+    { id: 'All', name: 'Discover', icon: Compass },
+    { id: 'Social', name: 'Social', icon: Users },
+    { id: 'Entertainment', name: 'Arcade & Play', icon: Gamepad },
+    { id: 'Productivity', name: 'Create & Work', icon: CheckSquare },
+    { id: 'Communication', name: 'Communication', icon: MessageSquare },
+    { id: 'Shopping', name: 'Shopping', icon: ShoppingBag },
+    { id: 'Developer Tools', name: 'Develop', icon: Code },
+    { id: 'Installed', name: 'Installed & Updates', icon: ArrowDownCircle }
   ];
+
 
   // Show notification helper
   const showNotification = (message, type = 'success') => {
@@ -45,14 +51,7 @@ export default function AppStore({ userId }) {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`${BASE_URL}/apps/all`);
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch apps');
-      }
-
-      const result = await response.json();
-
+      const result = await appStoreService.getAppsWithoutSystem();
       if (result.success) {
         const transformedApps = result.data.map(app => ({
           id: app._id,
@@ -90,77 +89,46 @@ export default function AppStore({ userId }) {
     }
 
     try {
-      const response = await fetch(`${BASE_URL}/config/get/${userId}`, {
-        credentials: 'include'
-      });
+      const data = await configService.getDockConfig(userId);
 
-      if (response.ok) {
-        const data = await response.json();
-
-        // Load installed apps from backend
-        if (data.desktopApps && data.desktopApps.length > 0) {
-          setApps(prevApps =>
-            prevApps.map(app => ({
-              ...app,
-              installed: data.desktopApps.includes(app.name)
-            }))
-          );
-        }
-        setHasUnsavedChanges(false);
-      } else if (response.status === 404) {
-        console.log('No configuration found, using defaults');
+      // Load installed apps from backend
+      if (data && data.desktopApps && data.desktopApps.length > 0) {
+        setApps(prevApps =>
+          prevApps.map(app => ({
+            ...app,
+            installed: data.desktopApps.includes(app.name)
+          }))
+        );
       }
     } catch (error) {
-      console.error('Error loading configuration:', error);
-      showNotification('Failed to load installed apps', 'error');
+      if (error.response?.status === 404) {
+        console.log('No configuration found, using defaults');
+      } else {
+        console.error('Error loading configuration:', error);
+        showNotification('Failed to load installed apps', 'error');
+      }
     }
   };
 
-  const saveConfiguration = async () => {
+  const autoSaveConfiguration = async (currentApps) => {
     if (!userId) {
-      showNotification('Please log in to save your configuration', 'error');
       return;
     }
 
-    const installedAppNames = apps
+    const installedAppNames = currentApps
       .filter(app => app.installed)
       .map(app => app.name);
 
-    if (!installedAppNames || installedAppNames.length === 0) {
-      showNotification('No apps to save. Please install at least one app.', 'info');
-      return;
-    }
-
     try {
-      setIsSaving(true);
-
       const requestBody = {
         desktopApps: installedAppNames
       };
 
-      const response = await fetch(`${BASE_URL}/config/save/${userId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify(requestBody)
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        showNotification('Desktop apps configuration saved successfully!', 'success');
-        setHasUnsavedChanges(false);
-      } else {
-        const errorMessage = data.message || 'Failed to save configuration';
-        showNotification(errorMessage, 'error');
-      }
+      await configService.saveDockConfig(userId, requestBody);
     } catch (error) {
-      console.error('Error saving configuration:', error);
-      showNotification(`Network error: ${error.message}`, 'error');
-    } finally {
-      setIsSaving(false);
+      console.error('Error auto-saving configuration:', error);
+      const errorMessage = error.response?.data?.message || `Network error: ${error.message}`;
+      showNotification(`Failed to sync changes: ${errorMessage}`, 'error');
     }
   };
 
@@ -247,14 +215,19 @@ export default function AppStore({ userId }) {
 
   // Filter apps based on category and search
   const filteredApps = apps.filter(app => {
-    const matchesCategory = selectedCategory === 'All' || app.category === selectedCategory;
+    const matchesCategory =
+      selectedCategory === 'All'
+        ? true
+        : selectedCategory === 'Installed'
+          ? app.installed
+          : app.category === selectedCategory;
     const matchesSearch = app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       app.description.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
   // Featured apps (top rated)
-  const featuredApps = apps.filter(app => app.rating >= 4.7).slice(0, 3);
+  const featuredApps = apps.filter(app => app.rating >= 4.5).slice(0, 3);
 
   // Installation handlers
   const handleInstall = (appId) => {
@@ -277,14 +250,17 @@ export default function AppStore({ userId }) {
 
       if (progress >= 100) {
         clearInterval(interval);
-        setApps(prevApps =>
-          prevApps.map(app =>
+        setApps(prevApps => {
+          const updatedApps = prevApps.map(app =>
             app.id === appId
               ? { ...app, installed: true, installing: false, progress: 100 }
               : app
-          )
-        );
-        setHasUnsavedChanges(true);
+          );
+          const targetApp = prevApps.find(app => app.id === appId);
+          showNotification(`${targetApp?.name || 'App'} installed successfully!`, 'success');
+          autoSaveConfiguration(updatedApps);
+          return updatedApps;
+        });
       } else {
         setApps(prevApps =>
           prevApps.map(app =>
@@ -303,26 +279,16 @@ export default function AppStore({ userId }) {
       return;
     }
 
-    setApps(prevApps =>
-      prevApps.map(app =>
+    setApps(prevApps => {
+      const updatedApps = prevApps.map(app =>
         app.id === appId
           ? { ...app, installed: false, progress: 0 }
           : app
-      )
-    );
-    setHasUnsavedChanges(true);
-  };
-
-  const handleInstallAll = () => {
-    if (!userId) {
-      showNotification('Please log in to install apps', 'error');
-      return;
-    }
-
-    apps.forEach(app => {
-      if (!app.installed && !app.installing) {
-        handleInstall(app.id);
-      }
+      );
+      const targetApp = prevApps.find(app => app.id === appId);
+      showNotification(`${targetApp?.name || 'App'} uninstalled successfully!`, 'info');
+      autoSaveConfiguration(updatedApps);
+      return updatedApps;
     });
   };
 
@@ -332,252 +298,189 @@ export default function AppStore({ userId }) {
       return;
     }
 
-    setApps(prevApps =>
-      prevApps.map(app => ({
+    setApps(prevApps => {
+      const updatedApps = prevApps.map(app => ({
         ...app,
         installed: false,
         installing: false,
         progress: 0
-      }))
-    );
-    setHasUnsavedChanges(true);
-    showNotification('All apps uninstalled', 'info');
+      }));
+      showNotification('All apps uninstalled successfully!', 'info');
+      autoSaveConfiguration(updatedApps);
+      return updatedApps;
+    });
   };
 
   const installedCount = apps.filter(app => app.installed).length;
-  const installingCount = apps.filter(app => app.installing).length;
 
   return (
-    <div className="h-full bg-gray-50 flex flex-col overflow-hidden">
-      {/* Notification */}
+    <div className="h-full bg-white flex overflow-hidden font-sans relative">
+      {/* Notification banner */}
       {notification && (
-        <div className="bg-blue-500 text-white px-6 py-3 flex items-center gap-2 animate-in slide-in-from-top">
-          <Check className="w-5 h-5" />
-          <span className="font-medium">{notification.message}</span>
-        </div>
-      )}
-
-      {/* Unsaved Changes Banner */}
-      {hasUnsavedChanges && (
-        <div className="bg-yellow-50 border-b border-yellow-200 px-6 py-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-              <span className="text-sm font-medium text-yellow-800">You have unsaved changes</span>
-            </div>
-            <button
-              onClick={saveConfiguration}
-              disabled={isSaving}
-              className="px-4 py-1.5 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition font-medium text-sm flex items-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Save Now
-                </>
-              )}
-            </button>
+        <div className={`absolute top-4 right-4 z-[99999] px-6 py-3 text-white rounded-xl shadow-lg transition-all transform duration-300 animate-in slide-in-from-top-4 ${
+          notification.type === 'error' ? 'bg-red-500' : 'bg-[#007AFF]'
+        }`}>
+          <div className="flex items-center gap-2">
+            <Check className="w-5 h-5 flex-shrink-0" />
+            <span className="font-semibold">{notification.message}</span>
           </div>
         </div>
       )}
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Loading State */}
-        {loading && (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <Loader className="animate-spin text-blue-500 mx-auto mb-4" size={48} />
-              <p className="text-gray-600 font-medium">Loading apps...</p>
+      {/* macOS Sidebar Navigation */}
+      <div className="w-60 bg-[#F2F2F7]/95 backdrop-blur-md border-r border-gray-200 flex flex-col justify-between flex-shrink-0 select-none">
+        <div>
+          {/* Sidebar Search Bar */}
+          <div className="p-4 relative">
+            <Search size={15} className="absolute left-7 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 bg-[#E3E3E8] hover:bg-[#D8D8DC] transition-colors rounded-lg text-sm border-none focus:outline-none focus:ring-1 focus:ring-blue-500 text-black placeholder-gray-500"
+            />
+          </div>
+
+          {/* Sidebar Navigation Items */}
+          <div className="px-3 space-y-0.5">
+            {sidebarItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = selectedCategory === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setSelectedCategory(item.id);
+                    setSelectedApp(null);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-[#D1D1D6]/60 text-black font-semibold shadow-sm"
+                      : "text-gray-600 hover:bg-[#D1D1D6]/20 hover:text-black"
+                  }`}
+                >
+                  <Icon size={18} className={isActive ? "text-[#007AFF]" : "text-gray-500"} />
+                  <span>{item.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-gray-200/80 space-y-3 bg-[#EAEAEF]/30">
+
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#007AFF] to-[#30A3FF] text-white flex items-center justify-center font-bold text-sm shadow-sm">
+              {userName ? (userName[0]?.toUpperCase() || 'U') : (userId ? (userId[0]?.toUpperCase() || 'U') : 'G')}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-gray-800 truncate">
+                {userId ? "Logged In" : "Guest Account"}
+              </p>
+              <p className="text-[10px] text-gray-500 truncate">
+                {userName || userId || "Local Sandbox"}
+              </p>
             </div>
           </div>
-        )}
+        </div>
+      </div>
 
-        {/* Error State */}
-        {error && !loading && (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center max-w-md mx-auto p-6">
-              <AlertCircle className="text-red-500 mx-auto mb-4" size={48} />
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Failed to Load Apps</h3>
-              <p className="text-gray-600 mb-4">{error}</p>
-              <button
-                onClick={() => {
-                  fetchApps();
-                  if (userId) loadConfiguration();
-                }}
-                className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
-              >
-                Try Again
-              </button>
+      {/* Main App Window Content */}
+      <div className="flex-1 flex flex-col bg-[#F5F5F7] overflow-hidden">
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {loading && (
+            <div className="flex-1 flex items-center justify-center min-h-[300px]">
+              <div className="text-center">
+                <Loader className="animate-spin text-[#007AFF] mx-auto mb-4" size={40} />
+                <p className="text-gray-500 font-medium text-sm">Loading App Store...</p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Apps Content */}
-        {!loading && !error && (
-          <>
-            {/* Search Bar */}
-            <div className="bg-white border-b border-gray-200 p-4">
-              <div className="max-w-2xl mx-auto flex items-center gap-4">
-                <div className="flex-1 relative">
-                  <Search size={20} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search apps..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-gray-100 rounded-xl border-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                  />
-                </div>
+          {error && !loading && (
+            <div className="flex-1 flex items-center justify-center min-h-[300px]">
+              <div className="text-center max-w-md mx-auto p-6">
+                <AlertCircle className="text-red-500 mx-auto mb-4" size={48} />
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Failed to Connect</h3>
+                <p className="text-gray-600 mb-4">{error}</p>
                 <button
                   onClick={() => {
                     fetchApps();
                     if (userId) loadConfiguration();
                   }}
-                  className="p-3 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
-                  title="Refresh"
+                  className="px-6 py-2 bg-[#007AFF] text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
                 >
-                  <RefreshCw size={20} className="text-gray-600" />
+                  Retry Connection
                 </button>
               </div>
             </div>
+          )}
 
-            {/* Category Pills */}
-            <div className="bg-white border-b border-gray-200 px-4 py-3 overflow-x-auto">
-              <div className="flex gap-2 min-w-max">
-                {categories.map((category) => (
-                  <button
-                    key={category}
-                    onClick={() => setSelectedCategory(category)}
-                    className={`px-4 py-2 rounded-full font-medium text-sm transition-all whitespace-nowrap ${selectedCategory === category
-                        ? 'bg-blue-500 text-white shadow-md'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Content Area */}
-            <div className="flex-1 overflow-y-auto">
-              <div className="max-w-7xl mx-auto p-6 space-y-8">
-                {/* Stats Bar */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                    <p className="text-xs text-gray-600 mb-1">Total Apps</p>
-                    <p className="text-2xl font-bold text-blue-600">{apps.length}</p>
-                  </div>
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                    <p className="text-xs text-gray-600 mb-1">Installed</p>
-                    <p className="text-2xl font-bold text-green-600">{installedCount}</p>
-                  </div>
-                  <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
-                    <p className="text-xs text-gray-600 mb-1">Installing</p>
-                    <p className="text-2xl font-bold text-purple-600">{installingCount}</p>
-                  </div>
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                    <p className="text-xs text-gray-600 mb-1">Available</p>
-                    <p className="text-2xl font-bold text-gray-600">{apps.length - installedCount - installingCount}</p>
-                  </div>
-                </div>
-
-                {/* Bulk Actions */}
-                {apps.length > 0 && userId && (
-                  <div className="flex gap-3 items-center flex-wrap">
-                    <button
-                      onClick={handleInstallAll}
-                      disabled={apps.every(app => app.installed || app.installing)}
-                      className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold text-sm shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
-                    >
-                      <Download size={16} />
-                      Install All Apps
-                    </button>
+          {!loading && !error && (
+            <div className="flex-1 flex flex-col min-h-0">
+              {/* Category Page Title */}
+              <div className="px-8 pt-8 pb-4 flex items-center justify-between">
+                <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+                  {selectedCategory === 'All'
+                    ? 'Discover'
+                    : selectedCategory === 'Installed'
+                      ? 'Installed'
+                      : sidebarItems.find(i => i.id === selectedCategory)?.name || selectedCategory}
+                </h1>
+                <div className="flex items-center gap-2">
+                  {selectedCategory === 'Installed' && installedCount > 0 && (
                     <button
                       onClick={handleUninstallAll}
-                      disabled={installedCount === 0}
-                      className="px-6 py-2.5 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition font-semibold text-sm disabled:bg-gray-100 disabled:cursor-not-allowed disabled:border-gray-200 flex items-center gap-2"
+                      className="px-3.5 py-1.5 bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={13} />
                       Uninstall All
                     </button>
-                    {installingCount > 0 && (
-                      <div className="ml-auto flex items-center gap-2 text-sm text-purple-600">
-                        <Loader className="animate-spin" size={16} />
-                        <span className="font-medium">Installing {installingCount} app{installingCount > 1 ? 's' : ''}...</span>
-                      </div>
-                    )}
-                  </div>
-                )}
+                  )}
+                  <button
+                    onClick={() => {
+                      fetchApps();
+                      if (userId) loadConfiguration();
+                    }}
+                    className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Refresh Store"
+                  >
+                    <RefreshCw size={15} />
+                  </button>
+                </div>
+              </div>
 
-                {/* Featured Section */}
-                {!searchQuery && selectedCategory === 'All' && featuredApps.length > 0 && (
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <TrendingUp className="text-blue-500" />
-                        Featured Apps
-                      </h2>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {featuredApps.map((app) => (
+              <div className="flex-1 px-8 pb-12 overflow-y-auto space-y-8">
+                {/* Discover Banners (Featured Apps Carousel) */}
+                {selectedCategory === 'All' && !searchQuery && featuredApps.length > 0 && (
+                  <div className="space-y-4">
+                    <div 
+                      className="grid gap-6"
+                      style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}
+                    >
+                      {featuredApps.map((app, index) => (
                         <div
                           key={app.id}
-                          className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105"
                           onClick={() => setSelectedApp(app)}
+                          className="relative h-44 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group flex flex-col justify-end p-5 bg-gradient-to-tr from-gray-900 via-gray-900/60 to-transparent"
                         >
-                          <div className="bg-gray-50 h-32 flex items-center justify-center text-6xl">
+                          {/* Banner background placeholder colors/gradients */}
+                          <div className={`absolute inset-0 -z-10 bg-gradient-to-br ${
+                            index === 0 ? 'from-[#FF5E62] to-[#FF9966]' :
+                            index === 1 ? 'from-[#3A1C71] via-[#D76D77] to-[#FFAF7B]' :
+                            'from-[#11998e] to-[#38ef7d]'
+                          } opacity-90 group-hover:scale-105 transition-transform duration-500`}></div>
+                          
+                          <div className="absolute top-4 right-4 text-4xl overflow-hidden rounded-xl bg-white/20 backdrop-blur-md p-1.5 w-12 h-12 flex items-center justify-center">
                             {getAppIcon(app.icon)}
                           </div>
-                          <div className="p-4">
-                            <h3 className="font-bold text-lg mb-1">{app.name}</h3>
-                            <p className="text-sm text-gray-600 mb-2 line-clamp-2">{app.description}</p>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1">
-                                <Star size={14} className="text-yellow-500 fill-yellow-500" />
-                                <span className="text-sm font-medium">{app.rating}</span>
-                              </div>
-                              <span className="text-xs text-gray-500">{app.downloads}</span>
-                            </div>
-
-                            <div className="mt-3" onClick={(e) => e.stopPropagation()}>
-                              {app.installing ? (
-                                <div>
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className="text-xs font-medium text-blue-600">Installing...</span>
-                                    <span className="text-xs font-medium text-blue-600">{Math.round(app.progress)}%</span>
-                                  </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                                    <div
-                                      className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-300"
-                                      style={{ width: `${app.progress}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              ) : app.installed ? (
-                                <button
-                                  onClick={() => handleUninstall(app.id)}
-                                  className="w-full py-2 bg-red-50 text-red-600 rounded-lg font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
-                                >
-                                  <Trash2 size={16} />
-                                  Uninstall
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => handleInstall(app.id)}
-                                  className="w-full py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
-                                >
-                                  <Download size={16} />
-                                  Install
-                                </button>
-                              )}
-                            </div>
+                          
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-white/70 tracking-widest">Featured</span>
+                            <h3 className="font-extrabold text-lg text-white mb-1 leading-snug">{app.name}</h3>
+                            <p className="text-xs text-white/90 line-clamp-1 max-w-[85%]">{app.description}</p>
                           </div>
                         </div>
                       ))}
@@ -585,148 +488,60 @@ export default function AppStore({ userId }) {
                   </div>
                 )}
 
-                {/* All Apps Grid */}
+                {/* Main Apps Grid Section */}
                 <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-2xl font-bold text-gray-900">
-                      {searchQuery ? `Results for "${searchQuery}"` : selectedCategory === 'All' ? 'All Apps' : selectedCategory}
-                    </h2>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setView('grid')}
-                        className={`p-2 rounded-lg transition-colors ${view === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
-                          }`}
-                      >
-                        <Grid3X3 size={18} />
-                      </button>
-                      <button
-                        onClick={() => setView('list')}
-                        className={`p-2 rounded-lg transition-colors ${view === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
-                          }`}
-                      >
-                        <List size={18} />
-                      </button>
-                    </div>
-                  </div>
+                  <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
+                    {searchQuery 
+                      ? `Results for "${searchQuery}"` 
+                      : selectedCategory === 'All' 
+                        ? 'Featured Applications' 
+                        : selectedCategory === 'Installed' 
+                          ? 'Manage your installed apps' 
+                          : `Top ${sidebarItems.find(i => i.id === selectedCategory)?.name || selectedCategory} Apps`}
+                  </h2>
 
                   {filteredApps.length === 0 ? (
-                    <div className="text-center py-12">
-                      <p className="text-gray-500 text-lg">No apps found</p>
-                    </div>
-                  ) : view === 'grid' ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                      {filteredApps.map((app) => (
-                        <div
-                          key={app.id}
-                          className="bg-white rounded-xl p-4 shadow hover:shadow-xl transition-all cursor-pointer group"
-                          onClick={() => setSelectedApp(app)}
-                        >
-                          <div className="bg-gray-50 w-20 h-20 rounded-2xl flex items-center justify-center text-4xl mb-3 group-hover:scale-110 transition-transform overflow-hidden">
-                            {getAppIcon(app.icon)}
-                          </div>
-                          <h3 className="font-bold text-base mb-1">{app.name}</h3>
-                          <p className="text-xs text-gray-600 mb-2 line-clamp-2">{app.description}</p>
-                          <div className="flex items-center justify-between mt-3">
-                            <div className="flex items-center gap-1">
-                              <Star size={12} className="text-yellow-500 fill-yellow-500" />
-                              <span className="text-xs font-medium">{app.rating}</span>
-                            </div>
-                            <span className="text-xs font-semibold text-blue-600">{app.price}</span>
-                          </div>
-
-                          <div className="mt-3" onClick={(e) => e.stopPropagation()}>
-                            {app.installing ? (
-                              <div>
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className="text-xs font-medium text-blue-600">Installing...</span>
-                                  <span className="text-xs font-medium text-blue-600">{Math.round(app.progress)}%</span>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                                  <div
-                                    className="bg-gradient-to-r from-blue-500 to-indigo-600 h-1.5 rounded-full transition-all duration-300"
-                                    style={{ width: `${app.progress}%` }}
-                                  />
-                                </div>
-                              </div>
-                            ) : app.installed ? (
-                              <button
-                                onClick={() => handleUninstall(app.id)}
-                                className="w-full py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-1"
-                              >
-                                <Trash2 size={12} />
-                                Uninstall
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleInstall(app.id)}
-                                className="w-full py-1.5 bg-blue-500 text-white rounded-lg text-xs font-semibold hover:bg-blue-600 transition-colors"
-                              >
-                                GET
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                    <div className="text-center py-20 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                      <p className="text-gray-400 font-medium">No Apps Found</p>
+                      <p className="text-xs text-gray-400 mt-1">Try refining your query or change tabs</p>
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div 
+                      className="grid gap-5"
+                      style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}
+                    >
                       {filteredApps.map((app) => (
                         <div
                           key={app.id}
-                          className="bg-white rounded-xl p-4 shadow hover:shadow-lg transition-all cursor-pointer flex items-center gap-4"
+                          className="flex items-center gap-4 p-4 border border-gray-200/50 bg-white rounded-2xl hover:shadow-md transition-all cursor-pointer group hover:-translate-y-0.5 shadow-sm"
                           onClick={() => setSelectedApp(app)}
                         >
-                          <div className="bg-gray-50 w-16 h-16 rounded-xl flex items-center justify-center text-3xl flex-shrink-0">
+                          <div className="bg-gray-50 w-16 h-16 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0 border border-gray-100 group-hover:scale-105 transition-transform overflow-hidden">
                             {getAppIcon(app.icon)}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-base mb-1">{app.name}</h3>
-                            <p className="text-sm text-gray-600 mb-1 line-clamp-1">{app.description}</p>
-                            <div className="flex items-center gap-3 text-xs text-gray-500">
-                              <div className="flex items-center gap-1">
-                                <Star size={12} className="text-yellow-500 fill-yellow-500" />
-                                <span>{app.rating}</span>
-                              </div>
-                              <span>{app.downloads}</span>
-                              <span>{app.size}</span>
-                            </div>
-
-                            {app.installing && (
-                              <div className="mt-2">
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className="text-xs font-medium text-blue-600">Installing...</span>
-                                  <span className="text-xs font-medium text-blue-600">{Math.round(app.progress)}%</span>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                                  <div
-                                    className="bg-gradient-to-r from-blue-500 to-indigo-600 h-1.5 rounded-full transition-all duration-300"
-                                    style={{ width: `${app.progress}%` }}
-                                  />
-                                </div>
-                              </div>
-                            )}
+                          <div className="flex-1 text-left min-w-0">
+                            <h3 className="font-bold text-gray-900 text-sm sm:text-base leading-tight truncate">{app.name}</h3>
+                            <p className="text-[11px] text-gray-500 font-medium mt-0.5 truncate">{app.category}</p>
+                            <p className="text-[11px] text-gray-400 mt-1 line-clamp-1">{app.description}</p>
                           </div>
+                          
                           <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                             {app.installing ? (
-                              <button
-                                disabled
-                                className="px-6 py-2 bg-gray-100 text-gray-400 rounded-full font-semibold cursor-not-allowed flex items-center gap-2"
-                              >
-                                <Loader size={16} className="animate-spin" />
-                                Installing
-                              </button>
+                              <div className="flex flex-col items-center min-w-[65px]">
+                                <Loader className="animate-spin text-[#007AFF] mb-1" size={14} />
+                                <span className="text-[9px] font-bold text-blue-600">{Math.round(app.progress)}%</span>
+                              </div>
                             ) : app.installed ? (
                               <button
                                 onClick={() => handleUninstall(app.id)}
-                                className="px-6 py-2 bg-red-50 text-red-600 rounded-full font-semibold hover:bg-red-100 transition-colors flex items-center gap-2"
+                                className="px-3.5 py-1 bg-green-50 hover:bg-red-50 text-green-600 hover:text-red-600 border border-green-200 hover:border-red-200 rounded-full text-[10px] font-extrabold transition-colors tracking-wide shadow-sm"
                               >
-                                <Trash2 size={16} />
-                                Uninstall
+                                INSTALLED
                               </button>
                             ) : (
                               <button
                                 onClick={() => handleInstall(app.id)}
-                                className="px-6 py-2 bg-blue-500 text-white rounded-full font-semibold hover:bg-blue-600 transition-colors"
+                                className="px-4.5 py-1 bg-[#007AFF] hover:bg-blue-600 text-white rounded-full text-[11px] font-extrabold transition-colors tracking-wide shadow-sm shadow-blue-100"
                               >
                                 GET
                               </button>
@@ -739,112 +554,114 @@ export default function AppStore({ userId }) {
                 </div>
               </div>
             </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
 
       {/* App Detail Modal */}
-      {selectedApp && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedApp(null)}>
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="bg-gray-50 w-20 h-20 rounded-2xl flex items-center justify-center text-4xl">
-                  {getAppIcon(selectedApp.icon)}
+      {selectedApp && (() => {
+        const currentApp = apps.find(a => a.id === selectedApp.id) || selectedApp;
+        return (
+          <div className="fixed inset-0 bg-black/45 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedApp(null)}>
+            <div className="bg-white rounded-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto shadow-2xl border border-gray-100" onClick={(e) => e.stopPropagation()}>
+              <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-200/60 p-6 flex items-center justify-between z-10">
+                <div className="flex items-center gap-4">
+                  <div className="bg-gray-50 w-16 h-16 rounded-2xl flex items-center justify-center text-4xl border border-gray-100 overflow-hidden shadow-sm">
+                    {getAppIcon(currentApp.icon)}
+                  </div>
+                  <div className="text-left">
+                    <h2 className="text-xl font-extrabold text-gray-900 leading-tight">{currentApp.name}</h2>
+                    <p className="text-xs text-gray-500 mt-0.5">{currentApp.developer || 'System Application'}</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-2xl font-bold">{selectedApp.name}</h2>
-                  <p className="text-gray-600">{selectedApp.developer}</p>
-                </div>
+                <button
+                  onClick={() => setSelectedApp(null)}
+                  className="p-1.5 hover:bg-gray-100 rounded-full transition-colors text-gray-500 hover:text-black"
+                >
+                  <X size={20} />
+                </button>
               </div>
-              <button
-                onClick={() => setSelectedApp(null)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <X size={24} />
-              </button>
-            </div>
 
-            <div className="p-6 space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex gap-6">
-                  <div className="text-center">
-                    <div className="flex items-center gap-1 justify-center mb-1">
-                      <Star size={16} className="text-yellow-500 fill-yellow-500" />
-                      <span className="text-2xl font-bold">{selectedApp.rating}</span>
-                    </div>
-                    <p className="text-xs text-gray-600">Rating</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold">{selectedApp.downloads}</p>
-                    <p className="text-xs text-gray-600">Downloads</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold">{selectedApp.size}</p>
-                    <p className="text-xs text-gray-600">Size</p>
-                  </div>
-                </div>
-
-                <div onClick={(e) => e.stopPropagation()}>
-                  {selectedApp.installing ? (
-                    <div className="min-w-[140px]">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-medium text-blue-600">Installing...</span>
-                        <span className="text-xs font-medium text-blue-600">{Math.round(selectedApp.progress)}%</span>
+              <div className="p-6 space-y-6">
+                <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+                  <div className="flex gap-6">
+                    <div className="text-center">
+                      <div className="flex items-center gap-1 justify-center mb-0.5">
+                        <Star size={15} className="text-yellow-500 fill-yellow-500" />
+                        <span className="text-lg font-bold text-gray-800">{currentApp.rating || 4.5}</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                        <div
-                          className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${selectedApp.progress}%` }}
-                        />
-                      </div>
+                      <p className="text-[10px] text-gray-500 font-medium">Rating</p>
                     </div>
-                  ) : selectedApp.installed ? (
-                    <button
-                      onClick={() => handleUninstall(selectedApp.id)}
-                      className="px-8 py-3 bg-red-50 text-red-600 rounded-full font-semibold hover:bg-red-100 transition-colors flex items-center gap-2"
-                    >
-                      <Trash2 size={20} />
-                      Uninstall
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleInstall(selectedApp.id)}
-                      className="px-8 py-3 bg-blue-500 text-white rounded-full font-semibold hover:bg-blue-600 transition-colors flex items-center gap-2"
-                    >
-                      <Download size={20} />
-                      Install
-                    </button>
-                  )}
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-gray-800">{currentApp.downloads || '1M+'}</p>
+                      <p className="text-[10px] text-gray-500 font-medium">Downloads</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-gray-800">{currentApp.size || '10MB'}</p>
+                      <p className="text-[10px] text-gray-500 font-medium">Size</p>
+                    </div>
+                  </div>
+
+                  <div onClick={(e) => e.stopPropagation()}>
+                    {currentApp.installing ? (
+                      <div className="min-w-[120px]">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] font-semibold text-blue-600">Installing...</span>
+                          <span className="text-[11px] font-semibold text-blue-600">{Math.round(currentApp.progress)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                          <div
+                            className="bg-[#007AFF] h-1.5 rounded-full transition-all duration-300"
+                            style={{ width: `${currentApp.progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : currentApp.installed ? (
+                      <button
+                        onClick={() => handleUninstall(currentApp.id)}
+                        className="px-6 py-2 bg-green-50 hover:bg-red-100 text-green-600 hover:text-red-600 border border-green-200 hover:border-red-200 rounded-full font-bold text-xs transition-colors flex items-center gap-1.5 shadow-sm"
+                      >
+                        <Check size={14} />
+                        Installed
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleInstall(currentApp.id)}
+                        className="px-8 py-2 bg-[#007AFF] hover:bg-blue-600 text-white rounded-full font-extrabold text-xs transition-colors shadow-md shadow-blue-100"
+                      >
+                        Install App
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <h3 className="text-lg font-bold mb-2">About</h3>
-                <p className="text-gray-700">{selectedApp.description}</p>
-              </div>
+                <div className="text-left">
+                  <h3 className="text-sm font-bold text-gray-900 mb-2">Description</h3>
+                  <p className="text-xs text-gray-600 leading-relaxed">{currentApp.description || 'No description available for this application.'}</p>
+                </div>
 
-              <div>
-                <h3 className="text-lg font-bold mb-2">Information</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Developer</span>
-                    <span className="font-medium">{selectedApp.developer}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Category</span>
-                    <span className="font-medium">{selectedApp.category}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Price</span>
-                    <span className="font-medium">{selectedApp.price}</span>
+                <div className="text-left">
+                  <h3 className="text-sm font-bold text-gray-900 mb-2">Information</h3>
+                  <div className="space-y-2.5 text-xs">
+                    <div className="flex justify-between pb-1.5 border-b border-gray-100">
+                      <span className="text-gray-500">Developer</span>
+                      <span className="font-semibold text-gray-800">{currentApp.developer || 'Apple Inc.'}</span>
+                    </div>
+                    <div className="flex justify-between pb-1.5 border-b border-gray-100">
+                      <span className="text-gray-500">Category</span>
+                      <span className="font-semibold text-gray-800">{currentApp.category}</span>
+                    </div>
+                    <div className="flex justify-between pb-1.5 border-b border-gray-100">
+                      <span className="text-gray-500">Price</span>
+                      <span className="font-semibold text-gray-800">{currentApp.price || 'Free'}</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

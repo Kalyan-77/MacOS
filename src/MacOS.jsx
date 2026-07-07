@@ -19,7 +19,7 @@ import ConfirmDialog from "./components/Desktop/ConfirmDialog";
 
 // Desktop Component
 function Desktop({ preloadedData }) {
-  const { windows, openWindow, closeWindow } = useWindows();
+  const { windows, openWindow, closeWindow, launchpadOpen } = useWindows();
   const brightness = useSystemStore((state) => state.brightness);
   const wallpaperUrl = useSystemStore((state) => state.wallpaperUrl);
   const [desktopItems, setDesktopItems] = useState(preloadedData?.desktopItems || []);
@@ -466,7 +466,7 @@ function Desktop({ preloadedData }) {
       <TopBar />
 
       <div className="flex-1 relative">
-        <div className={`absolute inset-0 transition-opacity duration-150 ease-in-out ${isRefreshing ? 'opacity-20' : 'opacity-100'}`}>
+        <div className={`absolute inset-0 transition-opacity duration-300 ease-in-out ${launchpadOpen ? 'opacity-0 pointer-events-none' : isRefreshing ? 'opacity-20' : 'opacity-100'}`}>
           {desktopItems.map((item, index) => (
             <DesktopItem
               key={item._id}
@@ -495,9 +495,11 @@ function Desktop({ preloadedData }) {
           </div>
         )}
 
-        {windows.map(window => (
-          <MacWindow key={window.id} app={window} userId={userId} />
-        ))}
+        <div className={launchpadOpen ? "hidden" : ""}>
+          {windows.map(window => (
+            <MacWindow key={window.id} app={window} userId={userId} userName={userName} />
+          ))}
+        </div>
       </div>
 
       {contextMenu.visible && (

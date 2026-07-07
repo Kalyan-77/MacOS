@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import { authService } from '../../api/authService';
+import { finderService } from '../../api/finderService';
 import {
   X, Trash2, RotateCcw, AlertTriangle, File, Folder,
   Image, Music, Video, FileText, Archive, Grid3X3, List,
   MoreHorizontal, Clock, HardDrive, Calendar, Info,
   ChevronDown, Search, RefreshCw, Menu
 } from 'lucide-react';
-import { BASE_URL } from '../../../config';
+
 
 
 export default function Trash() {
@@ -56,11 +57,11 @@ export default function Trash() {
 
   const fetchUser = async () => {
     try {
-      const res = await axios.get(`${BASE_URL}/auth/checkSession`, { withCredentials: true });
-      console.log("User session check:", res.data);
+      const data = await authService.checkSession();
+      console.log("User session check:", data);
 
-      if (res.data.loggedIn) {
-        setUser(res.data.user);
+      if (data.loggedIn) {
+        setUser(data.user);
       } else {
         setUser(null);
       }
@@ -84,11 +85,10 @@ export default function Trash() {
       // Fetch local trash items
       let localItems = [];
       try {
-        const localRes = await axios.get(`${BASE_URL}/finder/trash/local`, {
-          params: { owner: user._id || user.email || user.name }
-        });
-        console.log("Local trash response:", localRes.data);
-        localItems = (localRes.data.items || []).map(item => ({
+        const owner = user._id || user.email || user.name;
+        const data = await finderService.getTrashLocal(owner);
+        console.log("Local trash response:", data);
+        localItems = (data.items || []).map(item => ({
           ...item,
           source: 'local',
           id: item._id || item.id
@@ -100,11 +100,10 @@ export default function Trash() {
       // Fetch Google Drive trash items
       let driveItems = [];
       try {
-        const driveRes = await axios.get(`${BASE_URL}/cloud/bin`, {
-          params: { owner: user._id || user.email || user.name }
-        });
-        console.log("Drive trash response:", driveRes.data);
-        driveItems = (driveRes.data.files || driveRes.data || []).map(item => ({
+        const owner = user._id || user.email || user.name;
+        const data = await finderService.getCloudBin(owner);
+        console.log("Drive trash response:", data);
+        driveItems = (data.files || data || []).map(item => ({
           ...item,
           source: 'drive',
           id: item.id,
@@ -114,7 +113,7 @@ export default function Trash() {
           mimeType: item.mimeType,
           createdAt: item.createdTime,
           updatedAt: item.modifiedTime,
-          owner: item.owner || user._id || user.email || user.name
+          owner: item.owner || owner
         }));
       } catch (driveErr) {
         console.error("Error loading drive trash:", driveErr);
@@ -125,15 +124,15 @@ export default function Trash() {
       console.log("All items before filter:", allItems);
 
       // Filter by owner
+      const owner = user._id || user.email || user.name;
       const filteredItems = allItems.filter(item =>
-        item.owner === (user._id || user.email || user.name)
+        item.owner === owner
       );
 
       console.log("Filtered items:", filteredItems);
       setItems(filteredItems);
     } catch (err) {
       console.error("Error loading trash:", err);
-      console.error("Error details:", err.response?.data);
       setItems([]);
     } finally {
       setLoading(false);
@@ -144,10 +143,10 @@ export default function Trash() {
     try {
       if (item.source === 'drive') {
         // Restore from Google Drive trash
-        await axios.put(`${BASE_URL}/cloud/restore/${item.id}`);
+        await finderService.restoreCloudItem(item.id);
       } else {
         // Restore from local MongoDB trash
-        await axios.put(`${BASE_URL}/finder/restore/${item.id}`);
+        await finderService.restoreItem(item.id);
       }
 
       console.log('Item restored:', item.name);
@@ -167,13 +166,13 @@ export default function Trash() {
     try {
       if (item.source === 'drive') {
         // Delete from Google Drive permanently
-        await axios.delete(`${BASE_URL}/cloud/deletefiles/${item.id}`);
+        await finderService.deleteCloudItem(item.id);
       } else if (item.type === "folder") {
         // Delete folder from MongoDB
-        await axios.delete(`${BASE_URL}/finder/delete/folder/${item.id}`);
+        await finderService.deleteItem(item.id, 'folder');
       } else {
         // Delete file from MongoDB
-        await axios.delete(`${BASE_URL}/finder/delete/${item.id}`);
+        await finderService.deleteItem(item.id, 'file');
       }
 
       console.log('Item permanently deleted:', item.name);
@@ -199,9 +198,9 @@ export default function Trash() {
       for (const item of items) {
         try {
           if (item.source === 'drive') {
-            await axios.put(`${BASE_URL}/cloud/restore/${item.id}`);
+            await finderService.restoreCloudItem(item.id);
           } else {
-            await axios.put(`${BASE_URL}/finder/restore/${item.id}`);
+            await finderService.restoreItem(item.id);
           }
           successCount++;
           console.log('Restored:', item.name);
@@ -239,11 +238,11 @@ export default function Trash() {
       for (const item of items) {
         try {
           if (item.source === 'drive') {
-            await axios.delete(`${BASE_URL}/cloud/deletefiles/${item.id}`);
+            await finderService.deleteCloudItem(item.id);
           } else if (item.type === "folder") {
-            await axios.delete(`${BASE_URL}/finder/delete/folder/${item.id}`);
+            await finderService.deleteItem(item.id, 'folder');
           } else {
-            await axios.delete(`${BASE_URL}/finder/delete/${item.id}`);
+            await finderService.deleteItem(item.id, 'file');
           }
           successCount++;
           console.log('Deleted:', item.name);

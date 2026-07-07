@@ -4,10 +4,43 @@ import { BASE_URL } from "../../../config";
 import { allAvailableApps, defaultAppIds, defaultAppObjects } from "../../registry/appRegistry";
 
 export default function Dock({ userId, initialDockConfig }) {
-  const { windows, openApp, focusApp } = useWindows();
+  const { windows, openApp, focusApp, launchpadOpen, setLaunchpadOpen } = useWindows();
   const [hovered, setHovered] = useState(null);
-  const [showAllApps, setShowAllApps] = useState(false);
+  const [isRevealed, setIsRevealed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(0);
   const isInitialMount = useRef(true);
+
+  // Reset search and page when Launchpad closes
+  useEffect(() => {
+    if (!launchpadOpen) {
+      setSearchQuery("");
+      setCurrentPage(0);
+    }
+  }, [launchpadOpen]);
+
+  // Close Launchpad on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && launchpadOpen) {
+        setLaunchpadOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [launchpadOpen, setLaunchpadOpen]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const hasMaximizedWindow = !isMobile && windows.some(w => w.maximized && !w.minimized);
 
 
   const getAppsFromConfig = (config) => {
@@ -159,7 +192,7 @@ export default function Dock({ userId, initialDockConfig }) {
 
   const handleAppClick = (app) => {
     if (app.id === 'launchpad') {
-      setShowAllApps(true);
+      setLaunchpadOpen(true);
       return;
     }
 
@@ -179,11 +212,11 @@ export default function Dock({ userId, initialDockConfig }) {
         component: app.component
       });
     }
-    setShowAllApps(false);
+    setLaunchpadOpen(false);
   };
 
   const handleMoreAppsClick = () => {
-    setShowAllApps(!showAllApps);
+    setLaunchpadOpen(!launchpadOpen);
   };
 
   // Check if an app is active
@@ -213,6 +246,23 @@ export default function Dock({ userId, initialDockConfig }) {
     );
   }
 
+  // Filter out launchpad itself from installedApps
+  const launchpadApps = installedApps.filter(app => app.id !== 'launchpad');
+
+  // Filter apps by search query
+  const filteredApps = searchQuery
+    ? launchpadApps.filter(app => app.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : launchpadApps;
+
+  // Pagination logic (only paginate if not searching)
+  const appsPerPage = 28; // 7 columns x 4 rows
+  const pages = [];
+  if (!searchQuery) {
+    for (let i = 0; i < filteredApps.length; i += appsPerPage) {
+      pages.push(filteredApps.slice(i, i + appsPerPage));
+    }
+  }
+
   return (
     <>
       {/* CSS to hide scrollbar */}
@@ -227,27 +277,69 @@ export default function Dock({ userId, initialDockConfig }) {
       `}</style>
 
       {/* Full Screen App Grid Overlay */}
-      {showAllApps && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-lg flex flex-col">
-          <div className="flex items-center justify-between p-6 pt-12 flex-shrink-0">
-            <h1 className="text-white text-2xl font-bold">All Apps</h1>
-            <button
-              onClick={() => setShowAllApps(false)}
-              className="text-white hover:text-gray-300 transition-colors p-2"
-            >
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ cursor: 'pointer' }}>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      <div 
+        className={`fixed inset-0 z-50 backdrop-blur-[35px] bg-black/20 flex flex-col transition-all duration-300 ease-out ${
+          launchpadOpen ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-105 pointer-events-none'
+        }`}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setLaunchpadOpen(false);
+          }
+        }}
+      >
+        {/* Search Bar Container */}
+        <div className="w-full flex justify-center pt-16 pb-6 flex-shrink-0">
+          <div className="relative w-64" onClick={(e) => e.stopPropagation()}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(0);
+              }}
+              placeholder="Search"
+              className="w-full pl-9 pr-8 py-1.5 rounded-lg bg-neutral-800/40 border border-neutral-700/30 text-white placeholder-neutral-400 text-sm focus:outline-none focus:bg-neutral-800/60 focus:border-neutral-500/50 transition-all duration-200"
+            />
+            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+              <svg className="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-            </button>
+            </div>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute inset-y-0 right-3 flex items-center text-neutral-400 hover:text-white transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
           </div>
+        </div>
 
-          <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 hide-scrollbar">
-            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-6 pb-6 min-h-full justify-items-center">
-              {installedApps.filter(app => app.id !== 'launchpad').map((app, idx) => (
+        {searchQuery ? (
+          /* Search results flat grid */
+          <div 
+            className="flex-1 overflow-y-auto px-12 py-8 hide-scrollbar select-none"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setLaunchpadOpen(false);
+            }}
+          >
+            <div 
+              className="max-w-5xl mx-auto grid grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-y-10 gap-x-6 justify-items-center"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setLaunchpadOpen(false);
+              }}
+            >
+              {filteredApps.map((app, idx) => (
                 <div
                   key={`${app.id}-${idx}`}
                   className="flex flex-col items-center cursor-pointer group relative"
-                  onClick={() => handleAppClick(app)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAppClick(app);
+                  }}
                 >
                   <div className="w-16 h-16 sm:w-20 sm:h-20 mb-2 group-hover:scale-110 group-active:scale-95 transition-transform duration-200 relative">
                     <img
@@ -256,27 +348,108 @@ export default function Dock({ userId, initialDockConfig }) {
                       className="w-full h-full rounded-2xl shadow-lg"
                     />
                     {isAppActive(app.id) && (
-                      <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2">
-                        <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                      <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
+                        <div className="w-1.5 h-1.5 bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.8)]"></div>
                       </div>
                     )}
                   </div>
-                  <span className="text-white text-xs sm:text-sm text-center font-medium leading-tight max-w-[70px] sm:max-w-[80px] break-words">
+                  <span className="text-white text-xs sm:text-sm text-center font-medium leading-tight max-w-[80px] break-words drop-shadow">
                     {app.name}
                   </span>
                 </div>
               ))}
             </div>
           </div>
+        ) : (
+          /* Paginated pages slider */
+          <div className="flex-1 flex flex-col justify-between overflow-hidden select-none w-full relative">
+            <div 
+              className="flex-1 flex transition-transform duration-500 ease-out"
+              style={{ transform: `translateX(-${currentPage * 100}%)` }}
+            >
+              {pages.map((pageApps, pageIdx) => (
+                <div 
+                  key={pageIdx} 
+                  className="w-full flex-shrink-0 flex items-center justify-center px-12"
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget) setLaunchpadOpen(false);
+                  }}
+                >
+                  <div 
+                    className="max-w-5xl w-full grid grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-y-10 gap-x-6 justify-items-center"
+                    onClick={(e) => {
+                      if (e.target === e.currentTarget) setLaunchpadOpen(false);
+                    }}
+                  >
+                    {pageApps.map((app, idx) => (
+                      <div
+                        key={`${app.id}-${idx}`}
+                        className="flex flex-col items-center cursor-pointer group relative"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAppClick(app);
+                        }}
+                      >
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 mb-2 group-hover:scale-110 group-active:scale-95 transition-transform duration-200 relative">
+                          <img
+                            src={app.icon}
+                            alt={app.name}
+                            className="w-full h-full rounded-2xl shadow-lg"
+                          />
+                          {isAppActive(app.id) && (
+                            <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
+                              <div className="w-1.5 h-1.5 bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.8)]"></div>
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-white text-xs sm:text-sm text-center font-medium leading-tight max-w-[80px] break-words drop-shadow">
+                          {app.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
 
-          <div className="flex justify-center pb-6 pt-2 flex-shrink-0">
-            <div className="w-12 h-1 bg-white/30 rounded-full"></div>
+            {/* Pagination Dots */}
+            {pages.length > 1 && (
+              <div className="flex justify-center items-center space-x-3 pb-24 pt-4 flex-shrink-0 z-10">
+                {pages.map((_, pageIdx) => (
+                  <button
+                    key={pageIdx}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentPage(pageIdx);
+                    }}
+                    className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                      currentPage === pageIdx ? 'bg-white scale-110 shadow-md' : 'bg-white/35 hover:bg-white/60'
+                    }`}
+                    style={{ cursor: 'pointer' }}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        </div>
+        )}
+      </div>
+
+      {/* Sensor at the bottom to trigger showing the Dock when hovered */}
+      {hasMaximizedWindow && (
+        <div
+          className="fixed bottom-0 left-0 right-0 h-4 bg-transparent z-[9989]"
+          onMouseEnter={() => setIsRevealed(true)}
+        />
       )}
 
       {/* Main Dock */}
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[90%]">
+      <div
+        className="fixed bottom-2 left-1/2 w-[90%] z-[9990] transition-transform duration-300 ease-out"
+        style={{
+          transform: `translate3d(-50%, ${hasMaximizedWindow && !isRevealed ? 'calc(100% + 20px)' : '0px'}, 0)`
+        }}
+        onMouseLeave={() => setIsRevealed(false)}
+      >
         {/* Desktop Dock */}
         <div
           className="hidden sm:flex backdrop-blur-2xl bg-white/20 px-2 py-1.5 rounded-2xl items-end justify-center gap-3 shadow-2xl border border-white/30"

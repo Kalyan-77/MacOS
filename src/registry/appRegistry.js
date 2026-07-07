@@ -55,7 +55,7 @@ export const allAvailableApps = [
   { id: "perplexity", name: "Perplexity.AI", icon: "/AppIcons/perplexity.avif", component: Perplexity },
 ];
 
-export const defaultAppIds = ["filemanager", "launchpad", "appstore", "terminal", "trash", "videoplayer"];
+export const defaultAppIds = ["launchpad", "appstore", "filemanager", "terminal", "videoplayer", "trash", "preferences"];
 
 export const defaultAppObjects = allAvailableApps.filter(app =>
   defaultAppIds.includes(app.id)

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { ZoomIn, ZoomOut, RotateCw, Maximize2 } from 'lucide-react';
-import { BASE_URL } from '../../../config';
+import { finderService } from '../../api/finderService';
 
 export default function Photos({ fileToOpen = null, userId }) {
   const [imageUrl, setImageUrl] = useState(null);
@@ -28,7 +28,7 @@ export default function Photos({ fileToOpen = null, userId }) {
       const driveId = file._id;
 
       if (driveId) {
-        const imageDisplayUrl = `${BASE_URL}/cloud/display/${driveId}`;
+        const imageDisplayUrl = finderService.getCloudDisplayUrl(driveId);
         setImageUrl(imageDisplayUrl);
       } else if (file.url) {
         setImageUrl(file.url);

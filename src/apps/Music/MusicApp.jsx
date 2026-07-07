@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Shuffle, Heart, MoreVertical, List, RefreshCw } from 'lucide-react';
-import { BASE_URL } from '../../../config';
+import { finderService } from '../../api/finderService';
 
 export default function MusicPlayer({ fileToOpen = null, userId }) {
   const [playlist, setPlaylist] = useState([]);
@@ -24,15 +24,9 @@ export default function MusicPlayer({ fileToOpen = null, userId }) {
   const fetchMusicFiles = async () => {
     try {
       setIsLoadingPlaylist(true);
-      const response = await fetch(`${BASE_URL}/cloud/files/category?category=music`);
+      const musicFiles = await finderService.getCloudFilesByCategory("music");
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch music files');
-      }
-
-      const musicFiles = await response.json();
-      
-      const transformedPlaylist = musicFiles.map(file => ({
+      const transformedPlaylist = (musicFiles || []).map(file => ({
         _id: file.id,
         name: file.name,
         mimeType: file.mimeType,
@@ -76,7 +70,7 @@ export default function MusicPlayer({ fileToOpen = null, userId }) {
       setIsLoading(true);
 
       if (audioRef.current) {
-        const audioUrl = `${BASE_URL}/cloud/display/${file._id}`;
+        const audioUrl = finderService.getCloudDisplayUrl(file._id);
         audioRef.current.src = audioUrl;
         audioRef.current.load();
       }

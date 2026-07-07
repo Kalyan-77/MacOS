@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Save, Download, Menu, MoreVertical, Share2, Trash2, Edit3, Copy } from 'lucide-react';
-import { BASE_URL } from '../../../config';
+import { finderService } from '../../api/finderService';
 
 export default function NotePad({ onClose, fileToOpen = null, userId, zIndex = 1000, onFocus }) {
   const [noteContent, setNoteContent] = useState(() => {
@@ -24,9 +24,6 @@ export default function NotePad({ onClose, fileToOpen = null, userId, zIndex = 1
 
   const textareaRef = useRef(null);
   const mobileMenuRef = useRef(null);
-
-  const API_BASE = `${BASE_URL}/finder`;
-  const CLOUD_API = `${BASE_URL}/cloud`;
 
   // Check if mobile
   useEffect(() => {
@@ -63,7 +60,8 @@ export default function NotePad({ onClose, fileToOpen = null, userId, zIndex = 1
       }
 
       // Fetch actual file content from Google Drive
-      const response = await fetch(`${CLOUD_API}/display/${driveId}`, {
+      const displayUrl = finderService.getCloudDisplayUrl(driveId);
+      const response = await fetch(displayUrl, {
         credentials: 'include'
       });
 
@@ -157,22 +155,7 @@ export default function NotePad({ onClose, fileToOpen = null, userId, zIndex = 1
     try {
       if (currentFileId && googleDriveId) {
         // Update existing file
-        const response = await fetch(`${API_BASE}/textfile/${currentFileId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            content: noteContent
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to update file');
-        }
-
-        const data = await response.json();
+        const data = await finderService.updateTextFile(currentFileId, noteContent);
         console.log('File updated:', data);
 
         setIsSaved(true);
@@ -182,25 +165,12 @@ export default function NotePad({ onClose, fileToOpen = null, userId, zIndex = 1
         alert('File saved successfully!');
       } else {
         // Create new file
-        const response = await fetch(`${API_BASE}/textfile`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            name: fileName,
-            content: noteContent,
-            owner: userId,
-            parentId: null
-          })
+        const data = await finderService.createTextFile({
+          name: fileName,
+          content: noteContent,
+          owner: userId,
+          parentId: null
         });
-
-        if (!response.ok) {
-          throw new Error('Failed to create file');
-        }
-
-        const data = await response.json();
         console.log('File created:', data);
 
         setCurrentFileId(data.file._id);

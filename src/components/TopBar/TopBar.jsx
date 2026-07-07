@@ -53,7 +53,7 @@ export default function TopBar() {
     <div className="fixed top-0 w-full h-8 backdrop-blur-xl bg-black/20 text-white flex items-center justify-between px-2 sm:px-4 py-5 select-none shadow-lg z-[9998]">
 
       {/* Left Side */}
-      <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
         {/* Apple Menu */}
         <div className="relative menu-container flex-shrink-0">
           <div
@@ -99,10 +99,10 @@ export default function TopBar() {
         </div>
       </div>
 
-      {/* Right Side */}
-      <div className="flex items-center gap-2 sm:gap-4 text-sm flex-shrink-0">
+      {/* Opened Apps List - Displayed next to status icons (right aligned) and scrolls towards Left Side */}
+      <div className="flex-1 flex justify-end items-center gap-1.5 overflow-x-auto scrollbar-hide mx-2 min-w-0">
         {windows.length > 0 && (
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide max-w-[240px] ml-1 flex-shrink-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
             {windows.map((app) => (
               <button
                 key={app.id}
@@ -110,6 +110,7 @@ export default function TopBar() {
                 className={`flex items-center gap-2 flex-shrink-0 rounded transition-colors px-1 py-0.5
                   ${app.focused ? "bg-white/20" : "hover:bg-white/10"}`}
                 title={app.name}
+                style={{ cursor: "pointer" }}
               >
                 <img
                   src={app.icon}
@@ -118,9 +119,13 @@ export default function TopBar() {
                 />
               </button>
             ))}
+            <div className="h-4 w-px bg-white/20 flex-shrink-0 ml-1.5 mr-0.5"></div>
           </div>
         )}
-        <div className="h-6 w-px bg-white/30 flex-shrink-0 hidden md:block"></div>
+      </div>
+
+      {/* Right Side */}
+      <div className="flex items-center gap-2 sm:gap-4 text-sm flex-shrink-0">
         
         {/* Battery Status - Hidden on small screens */}
         <div className="hidden md:block">

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX, Maximize2, SkipBack, SkipForward } from 'lucide-react';
-import { BASE_URL } from '../../../config';
+import { finderService } from '../../api/finderService';
 
 export default function VideoPlayer({ fileToOpen = null, userId }) {
   const [videoUrl, setVideoUrl] = useState(null);
@@ -45,7 +45,7 @@ export default function VideoPlayer({ fileToOpen = null, userId }) {
       const driveId = file._id;
 
       if (driveId) {
-        const videoDisplayUrl = `${BASE_URL}/cloud/display/${driveId}`;
+        const videoDisplayUrl = finderService.getCloudDisplayUrl(driveId);
         setVideoUrl(videoDisplayUrl);
       } else if (file.url) {
         setVideoUrl(file.url);

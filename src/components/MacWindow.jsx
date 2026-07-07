@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useWindows } from "../context/WindowContext";
 
-export default function MacWindow({ app, userId }) {
-  const { minimizeApp, closeApp, focusApp } = useWindows();
+export default function MacWindow({ app, userId, userName }) {
+  const { minimizeApp, closeApp, focusApp, setMaximizeApp, toggleMaximizeApp } = useWindows();
 
   // ---------------- RESPONSIVE STATE ----------------
   const [isMobile, setIsMobile] = useState(false);
@@ -12,7 +12,7 @@ export default function MacWindow({ app, userId }) {
   // ---------------- LOCAL UI STATE ----------------
   const [position, setPosition] = useState({ x: 200, y: 60 });
   const [size, setSize] = useState({ w: 900, h: 550 });
-  const [isMaximized, setIsMaximized] = useState(false);
+  const isMaximized = app.maximized || false;
   const [preMaximizeState, setPreMaximizeState] = useState({ x: 200, y: 120, w: 500, h: 300 });
 
   const offset = useRef({ x: 0, y: 0 });
@@ -52,7 +52,7 @@ export default function MacWindow({ app, userId }) {
         if (!isMaximized) {
           setPreMaximizeState({ x: position.x, y: position.y, w: size.w, h: size.h });
         }
-        setIsMaximized(true);
+        setMaximizeApp(app.id, true);
         setSize({ w: width, h: height - TOPBAR_HEIGHT });
         setPosition({ x: 0, y: TOPBAR_HEIGHT });
       } else if (tablet) {
@@ -242,12 +242,12 @@ export default function MacWindow({ app, userId }) {
       setSize({ w: maxWidth, h: maxHeight });
       setPosition({ x: SIDE_MARGIN, y: TOPBAR_HEIGHT });
     }
-    setIsMaximized(!isMaximized);
+    toggleMaximizeApp(app.id);
   };
 
-  // Prepare props to pass to component
   const componentProps = {
     userId,
+    userName,
     onClose: () => closeApp(app.id),
     ...(app.props || {}) // Spread any additional props stored in the app object
   };
@@ -274,8 +274,7 @@ export default function MacWindow({ app, userId }) {
       {/* TITLE BAR */}
       <div
         onMouseDown={startDrag}
-        className={`h-10 bg-zinc-900 ${titleBarRadius} flex items-center px-3 ${isMobile ? 'cursor-default' : 'cursor-move'
-          } select-none`}
+        className={`h-10 bg-zinc-900 ${titleBarRadius} flex items-center px-3 cursor-default select-none`}
       >
         <div className="flex gap-2">
           <button

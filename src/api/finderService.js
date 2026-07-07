@@ -122,4 +122,37 @@ export const finderService = {
     });
     return response.data;
   },
+
+  updateTextFile: async (fileId, content) => {
+    const response = await apiClient.put(`/finder/textfile/${fileId}`, { content });
+    return response.data;
+  },
+
+  getCloudFilesByCategory: async (category) => {
+    const response = await apiClient.get("/cloud/files/category", {
+      params: { category }
+    });
+    return response.data;
+  },
+
+  getCloudBin: async (owner) => {
+    const response = await apiClient.get("/cloud/bin", {
+      params: { owner }
+    });
+    return response.data;
+  },
+
+  restoreCloudItem: async (itemId) => {
+    const response = await apiClient.put(`/cloud/restore/${itemId}`);
+    return response.data;
+  },
+
+  deleteCloudItem: async (itemId) => {
+    const response = await apiClient.delete(`/cloud/deletefiles/${itemId}`);
+    return response.data;
+  },
+
+  getCloudDisplayUrl: (fileId) => {
+    return `${apiClient.defaults.baseURL}/cloud/display/${fileId}`;
+  },
 };

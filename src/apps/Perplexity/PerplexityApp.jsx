@@ -6,7 +6,9 @@ import {
   Loader, AlertCircle, Lock, Key
 } from 'lucide-react';
 
-const BASE_URL = 'http://localhost:5000'; // Update this to your actual BASE_URL
+import { authService } from '../../api/authService';
+import { configService } from '../../api/configService';
+import { perplexityService } from '../../api/perplexityService';
 
 export default function Perplexity({ userId, onClose }) {
   // API Key Modal state
@@ -63,10 +65,7 @@ export default function Perplexity({ userId, onClose }) {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const res = await fetch(`${BASE_URL}/auth/checkSession`, {
-          credentials: 'include'
-        });
-        const data = await res.json();
+        const data = await authService.checkSession();
         if (data.loggedIn) {
           setUser(data.user);
         }
@@ -91,13 +90,9 @@ export default function Perplexity({ userId, onClose }) {
     setIsCheckingApiKey(true);
 
     try {
-      const response = await fetch(`${BASE_URL}/config/get/${userId}`, {
-        credentials: 'include'
-      });
+      const data = await configService.getDockConfig(userId);
 
-      const data = await response.json();
-
-      if (response.ok && data.perplexity_API_exists) {
+      if (data && data.perplexity_API_exists) {
         setHasValidApiKey(true);
         setApiKey(data.perplexity_API_masked || '');
       } else {
@@ -129,37 +124,25 @@ export default function Perplexity({ userId, onClose }) {
     setApiKeyError('');
 
     try {
-      const response = await fetch(`${BASE_URL}/config/save/${userId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          perplexity_API: apiKeyInput.trim()
-        })
+      const data = await configService.saveDockConfig(userId, {
+        perplexity_API: apiKeyInput.trim()
       });
 
-      const data = await response.json();
+      setHasValidApiKey(true);
+      setShowApiKeyModal(false);
+      setApiKeyInput('');
+      setApiKey('***' + apiKeyInput.slice(-4));
 
-      if (response.ok) {
-        setHasValidApiKey(true);
-        setShowApiKeyModal(false);
-        setApiKeyInput('');
-        setApiKey('***' + apiKeyInput.slice(-4));
-
-        setMessages(prev => [...prev, {
-          id: Date.now(),
-          type: 'assistant',
-          content: "✅ API key saved successfully! You can now start chatting.",
-          timestamp: new Date()
-        }]);
-      } else {
-        setApiKeyError(data.message || 'Failed to save API key');
-      }
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        type: 'assistant',
+        content: "✅ API key saved successfully! You can now start chatting.",
+        timestamp: new Date()
+      }]);
     } catch (error) {
       console.error("Error saving API key:", error);
-      setApiKeyError('Failed to save API key. Please try again.');
+      const errorMsg = error.response?.data?.message || 'Failed to save API key. Please try again.';
+      setApiKeyError(errorMsg);
     } finally {
       setSavingApiKey(false);
     }
@@ -210,26 +193,7 @@ export default function Perplexity({ userId, onClose }) {
     setError(null);
 
     try {
-      const response = await fetch(`${BASE_URL}/perplexity/chat/${userId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ message: currentInput })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (response.status === 401 || data.message?.includes('API key')) {
-          setHasValidApiKey(false);
-          setShowApiKeyModal(true);
-          throw new Error('Invalid API key. Please update your API key.');
-        }
-
-        throw new Error(data.message || 'Failed to generate response');
-      }
+      const data = await perplexityService.chat(userId, currentInput);
 
       const aiMessage = {
         id: Date.now() + 1,
@@ -242,7 +206,13 @@ export default function Perplexity({ userId, onClose }) {
     } catch (error) {
       console.error("Perplexity API Error:", error);
 
-      let errorMessage = error.message || "Failed to generate response. Please try again.";
+      let errorMessage = error.response?.data?.message || error.message || "Failed to generate response. Please try again.";
+
+      if (error.response?.status === 401 || errorMessage?.includes('API key')) {
+        setHasValidApiKey(false);
+        setShowApiKeyModal(true);
+        errorMessage = 'Invalid API key. Please update your API key.';
+      }
 
       setError(errorMessage);
 

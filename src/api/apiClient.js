@@ -9,4 +9,6 @@ const apiClient = axios.create({
   },
 });
 
+export { BASE_URL };
 export default apiClient;
+

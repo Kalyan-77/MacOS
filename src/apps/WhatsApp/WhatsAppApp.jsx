@@ -5,7 +5,9 @@ import {
   Camera, Trash2, User, ArrowLeft, ChevronDown, LogOut,
   Archive, VolumeX, Ban, ThumbsUp, Reply, Forward, Star, Copy, Info
 } from 'lucide-react';
-import { BASE_URL } from '../../../config';
+import { authService } from '../../api/authService';
+import { chatService } from '../../api/chatService';
+import { BASE_URL } from '../../api/apiClient';
 
 // Dropdown Menu Component
 const DropdownMenu = ({ options, onClose, x, y, anchorRect, anchorSide = 'right', containerRef }) => {
@@ -444,10 +446,7 @@ export default function WhatsApp({ userId }) {
 
     const fetchSession = async () => {
       try {
-        const response = await fetch(`${BASE_URL}/auth/checkSession`, {
-          credentials: 'include'
-        });
-        const data = await response.json();
+        const data = await authService.checkSession();
         if (data.loggedIn) {
           setMe(data.user);
           meRef.current = data.user;
@@ -483,27 +482,17 @@ export default function WhatsApp({ userId }) {
     const fetchUsersWithLastMessages = async () => {
       try {
         // Get all users
-        const usersResponse = await fetch(`${BASE_URL}/chat/users`, { credentials: 'include' });
-        const usersData = await usersResponse.json();
+        const usersData = await chatService.getUsers();
 
         // For each user, fetch their room and last message
         const usersWithMessages = await Promise.all(
           usersData.map(async (user) => {
             try {
               // Get or create room
-              const roomResponse = await fetch(`${BASE_URL}/chat/room`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ otherUserId: user._id })
-              });
-              const room = await roomResponse.json();
+              const room = await chatService.getOrCreateRoom({ otherUserId: user._id });
 
               // Get messages for this room
-              const messagesResponse = await fetch(`${BASE_URL}/chat/messages/${room._id}`, {
-                credentials: 'include'
-              });
-              const messages = await messagesResponse.json();
+              const messages = await chatService.getMessages(room._id);
 
               // Get last message
               const lastMsg = messages.length > 0 ? messages[messages.length - 1] : null;
@@ -551,8 +540,7 @@ export default function WhatsApp({ userId }) {
   useEffect(() => {
     if (!me) return;
 
-    fetch(`${BASE_URL}/profile/me`, { credentials: 'include' })
-      .then(res => res.json())
+    authService.getProfile()
       .then(data => setProfile(data))
       .catch(err => console.error('Profile fetch error', err));
   }, [me]);
@@ -584,21 +572,12 @@ export default function WhatsApp({ userId }) {
   // Open chat
   const openChat = async (user) => {
     try {
-      const response = await fetch(`${BASE_URL}/chat/room`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ otherUserId: user._id })
-      });
-      const room = await response.json();
+      const room = await chatService.getOrCreateRoom({ otherUserId: user._id });
 
       setRoomId(room._id);
       setSelectedUser(user);
 
-      const msgsResponse = await fetch(`${BASE_URL}/chat/messages/${room._id}`, {
-        credentials: 'include'
-      });
-      const msgs = await msgsResponse.json();
+      const msgs = await chatService.getMessages(room._id);
       setMessages(msgs);
 
       setUsers(prevUsers =>
@@ -671,12 +650,7 @@ export default function WhatsApp({ userId }) {
     formData.append('roomId', roomId);
 
     try {
-      const response = await fetch(`${BASE_URL}/chat/upload`, {
-        method: 'POST',
-        credentials: 'include',
-        body: formData
-      });
-      const fileMessage = await response.json();
+      const fileMessage = await chatService.uploadFile(formData);
       setMessages(prev => [...prev, fileMessage]);
 
       // 🔥 Update user list with file message
@@ -700,15 +674,11 @@ export default function WhatsApp({ userId }) {
   // Delete message
   const deleteMessage = async (messageId, type) => {
     try {
-      const endpoint =
-        type === 'everyone'
-          ? `${BASE_URL}/chat/message/everyone/${messageId}`
-          : `${BASE_URL}/chat/message/me/${messageId}`;
-
-      await fetch(endpoint, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
+      if (type === 'everyone') {
+        await chatService.deleteMessageEveryone(messageId);
+      } else {
+        await chatService.deleteMessageMe(messageId);
+      }
 
       if (type === 'me') {
         setMessages(prev => prev.filter(m => m._id !== messageId));
@@ -723,10 +693,7 @@ export default function WhatsApp({ userId }) {
     if (!roomId) return;
 
     try {
-      await fetch(`${BASE_URL}/chat/chat/me/${roomId}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
+      await chatService.clearChat(roomId);
       setMessages([]);
       setShowClearChatModal(false);
 
@@ -751,12 +718,7 @@ export default function WhatsApp({ userId }) {
     if (avatarFile) formData.append('avatar', avatarFile);
 
     try {
-      const response = await fetch(`${BASE_URL}/profile/update`, {
-        method: 'PUT',
-        credentials: 'include',
-        body: formData
-      });
-      const updatedProfile = await response.json();
+      const updatedProfile = await authService.updateProfile(formData);
       setProfile(updatedProfile);
       setMe(updatedProfile);
       setShowProfile(false);

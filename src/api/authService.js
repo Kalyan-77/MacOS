@@ -10,4 +10,10 @@ export const authService = {
     const response = await apiClient.get("/profile/me");
     return response.data;
   },
+
+  updateProfile: async (profileData) => {
+    const response = await apiClient.post("/profile/update", profileData);
+    return response.data;
+  },
 };
+

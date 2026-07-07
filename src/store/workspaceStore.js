@@ -3,6 +3,9 @@ import { create } from "zustand";
 export const useWorkspaceStore = create((set, get) => ({
   windows: [],
   zCounter: 100,
+  launchpadOpen: false,
+
+  setLaunchpadOpen: (open) => set({ launchpadOpen: open }),
 
   openWindow: (id, name, component, props = {}, icon = null) => {
     // Check if window already exists
@@ -83,5 +86,21 @@ export const useWorkspaceStore = create((set, get) => ({
         zCounter: nextZ
       };
     });
+  },
+
+  setMaximizeApp: (id, maximized) => {
+    set(state => ({
+      windows: state.windows.map(w =>
+        w.id === id ? { ...w, maximized } : w
+      )
+    }));
+  },
+
+  toggleMaximizeApp: (id) => {
+    set(state => ({
+      windows: state.windows.map(w =>
+        w.id === id ? { ...w, maximized: !w.maximized } : w
+      )
+    }));
   }
 }));

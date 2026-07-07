@@ -5,4 +5,10 @@ export const configService = {
     const response = await apiClient.get(`/config/get/${userId}`);
     return response.data;
   },
+
+  saveDockConfig: async (userId, configData) => {
+    const response = await apiClient.post(`/config/save/${userId}`, configData);
+    return response.data;
+  },
 };
+
